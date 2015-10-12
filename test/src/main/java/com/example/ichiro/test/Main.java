@@ -1,31 +1,14 @@
 package com.example.ichiro.test;
 
-import android.content.Context;
-import android.os.AsyncTask;
-import android.os.Environment;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
+import android.support.v7.app.AppCompatActivity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Toast;
 
-import com.itextpdf.text.Document;
-import com.itextpdf.text.DocumentException;
-import com.itextpdf.text.Paragraph;
-import com.itextpdf.text.pdf.PdfWriter;
-
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.OutputStream;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-
 public class Main extends AppCompatActivity {
-
-    private PdfTask pdfTask;
+    PdfGenerator pdfGenerator;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,82 +38,36 @@ public class Main extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    public void createPdf(File file) throws FileNotFoundException, DocumentException {
-        OutputStream fos = new FileOutputStream(file);
-        Document doc = new Document();
-        PdfWriter.getInstance(doc, fos);
-
-        doc.open();
-
-        doc.add(new Paragraph("Hello pdf!!"));
-
-        doc.close();
-    }
 
     /**
      * @param view
      */
     public void onMyButtonClick(View view)
     {
-        if (!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)){
-            //handle case of no SDCARD present
-        } else {
-            String dir = Environment.getExternalStorageDirectory() + File.separator + "pdfdemo";
+        final String[] m_chosen = new String[1];
 
-            File folder = new File(dir);
-            if (!folder.exists()) {
-                folder.mkdirs();
-            }
+        FileDialog fileSaveDialog =  new FileDialog (
+            Main.this,
+            "FileSave",
+            new FileDialog.SimpleFileDialogListener() {
+                @Override
+                public void onChosenDir(String chosenDir) {
+                    // The code in this function will be executed when the dialog OK button is pushed
+                    m_chosen[0] = chosenDir;
+                    Toast.makeText(
+                        Main.this,
+                        "Chosen FileOpenDialog File: " + m_chosen[0],
+                        Toast.LENGTH_LONG
+                    ).show();
+                }
+        });
 
-            File file = new File(dir, "test.pdf");
+        fileSaveDialog.Default_File_Name = "my_default.txt";
+        fileSaveDialog.chooseFile_or_Dir();
 
-            try {
-                pdfTask = new PdfTask();
-                pdfTask.execute(file);
-            } catch (Exception e) {
-
-            }
-        }
+        pdfGenerator = new PdfGenerator();
+        pdfGenerator.execute();
         Toast.makeText(this, "Зачем вы нажали?", Toast.LENGTH_SHORT).show();
     }
-
-    /**
-     *
-     */
-    class PdfTask extends AsyncTask<File, Void, Void> {
-
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-        }
-
-        /**
-         * @param files
-         * @return
-         */
-        @Override
-        protected Void doInBackground(File... files) {
-            File file = files[0];
-
-            try {
-                int filesCounter = files.length;
-                if (filesCounter == 1) {
-                    createPdf(file);
-                }
-            } catch (DocumentException de) {
-
-            } catch (FileNotFoundException fnfe) {
-                Log.w("ExternalStorage", String.format("Error writing %s", file), fnfe);
-            }
-            return null;
-        }
-
-        /**
-         * @param result
-         */
-        @Override
-        protected void onPostExecute(Void result) {
-            super.onPostExecute(result);
-        }
-    }
 }
+
