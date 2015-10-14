@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="file_save">Сохранить как...</string>
+    <string name="file_open">Открыть</string>
+    <string name="dir_select">Выбрать директорию</string>
+    <string name="button_ok">ОК</string>
+    <string name="button_cancel">Отмена</string>
+    <string name="default_pdf_name">Файл</string>
+    <string name="date_time_format">MMddyyyy_HHmmss</string>
+    <string name="new_directory">Новая директория</string>
+    <string name="new_directory_name">Введите имя директории</string>
+    <string name="failed_to_create_dir">Ошибка создания новой директории %s</string>
+</resources>

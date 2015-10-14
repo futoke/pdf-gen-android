@@ -48,8 +48,8 @@ public class Main extends AppCompatActivity {
 
         FileDialog fileSaveDialog =  new FileDialog (
             Main.this,
-            "FileSave",
-            new FileDialog.SimpleFileDialogListener() {
+            DialogType.FILE_SAVE,
+            new FileDialog.FileDialogListener() {
                 @Override
                 public void onChosenDir(String chosenDir) {
                     // The code in this function will be executed when the dialog OK button is pushed
@@ -62,8 +62,7 @@ public class Main extends AppCompatActivity {
                 }
         });
 
-        fileSaveDialog.Default_File_Name = "my_default.txt";
-        fileSaveDialog.chooseFile_or_Dir();
+        fileSaveDialog.chooseFileOrDir();
 
         pdfGenerator = new PdfGenerator();
         pdfGenerator.execute();
