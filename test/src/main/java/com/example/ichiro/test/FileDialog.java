@@ -9,6 +9,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -19,6 +20,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -292,6 +294,11 @@ public class FileDialog
                     {
                         final EditText input = new EditText(context);
 
+                        // Force show keyboard.
+                        input.requestFocus();
+                        InputMethodManager imm = (InputMethodManager)context.getSystemService(Context.INPUT_METHOD_SERVICE);
+                        imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, InputMethodManager.HIDE_IMPLICIT_ONLY);
+
                         // Show new folder name input dialog
                         new AlertDialog.Builder(context).
                                 setTitle(context.getResources().getString(R.string.new_directory_name)).
@@ -316,7 +323,15 @@ public class FileDialog
                                     ).show();
                                 }
                             }
-                        }).setNegativeButton(buttonCancel, null).show();
+                        }).setNegativeButton(buttonCancel, new DialogInterface.OnClickListener()
+                        {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                // Force hide keyboard.
+                                InputMethodManager imm = (InputMethodManager)context.getSystemService(Context.INPUT_METHOD_SERVICE);
+                                imm.hideSoftInputFromWindow(input.getWindowToken(), 0);
+                            }
+                        }).show();
                     }
                 }
             );
