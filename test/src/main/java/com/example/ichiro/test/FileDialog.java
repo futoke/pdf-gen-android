@@ -9,17 +9,19 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
 import android.os.Environment;
 import android.text.Editable;
+import android.util.Log;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
+import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -34,7 +36,6 @@ public class FileDialog
     private DialogType dialogType;
 
     private Context context;
-    private TextView mainView;
     private TextView auxView;
     private EditText inputTextField;
 
@@ -158,6 +159,7 @@ public class FileDialog
                     dir = dirOld;
                     // If you uncomment this line, you can overwrite files.
                     // fileName = sel;
+                    // TODO: implement duplicate checking!!!
                 }
 
                 updateDirectory();
@@ -239,12 +241,14 @@ public class FileDialog
 
     // Start dialog definition.
     private AlertDialog.Builder createDirectoryChooserDialog(
-            String title, List<String> listItems,
+            String title,
+            List<String> listItems,
             DialogInterface.OnClickListener onClickListener)
     {
         AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(context);
         // Create title text showing file select type.
-        mainView = new TextView(context);
+        TextView mainView = new TextView(context);
+
         mainView.setLayoutParams(
                 new LayoutParams(
                         LayoutParams.MATCH_PARENT,
@@ -278,6 +282,8 @@ public class FileDialog
         titleLayout1.addView(mainView);
 
         if (dialogType == DialogType.DIR_SELECT || dialogType == DialogType.FILE_SAVE) {
+
+
             // Create New Folder Button.
             Button newDirButton = new Button(context);
             newDirButton.setLayoutParams(
@@ -286,55 +292,52 @@ public class FileDialog
                             LayoutParams.WRAP_CONTENT
                     )
             );
+
             newDirButton.setText(context.getResources().getString(R.string.new_directory));
-            newDirButton.setOnClickListener(new View.OnClickListener()
-                {
-                    @Override
-                    public void onClick(View v)
-                    {
-                        final EditText input = new EditText(context);
+            newDirButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    final EditText input = new EditText(context);
+                    // Force show keyboard.
+                    input.requestFocus();
+                    InputMethodManager imm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
+                    imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, InputMethodManager.HIDE_IMPLICIT_ONLY);
 
-                        // Force show keyboard.
-                        input.requestFocus();
-                        InputMethodManager imm = (InputMethodManager)context.getSystemService(Context.INPUT_METHOD_SERVICE);
-                        imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, InputMethodManager.HIDE_IMPLICIT_ONLY);
-
-                        // Show new folder name input dialog
-                        new AlertDialog.Builder(context).
-                                setTitle(context.getResources().getString(R.string.new_directory_name)).
-                                setView(input).setPositiveButton(buttonOk, new DialogInterface.OnClickListener()
-                        {
-                            public void onClick(DialogInterface dialog, int whichButton)
-                            {
-                                Editable newDir = input.getText();
-                                String newDirName = newDir.toString();
-                                // Create new directory.
-                                if (createSubDir(dir + File.separator + newDirName)) {
-                                    // Navigate into the new directory.
-                                    dir += File.separator + newDirName;
-                                    updateDirectory();
-                                } else {
-                                    Toast.makeText(
-                                            context,
-                                            String.format(
-                                                    context.getResources().getString(R.string.failed_to_create_dir),
-                                                    newDirName),
-                                            Toast.LENGTH_SHORT
-                                    ).show();
-                                }
+                    // Show new folder name input dialog
+                    new AlertDialog.Builder(context).
+                            setTitle(context.getResources().getString(R.string.new_directory_name)).
+                            setView(input).setPositiveButton(buttonOk, new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int whichButton) {
+                            Editable newDir = input.getText();
+                            String newDirName = newDir.toString();
+                            // Create new directory.
+                            if (createSubDir(dir + File.separator + newDirName)) {
+                                // Navigate into the new directory.
+                                dir += File.separator + newDirName;
+                                updateDirectory();
+                            } else {
+                                Toast.makeText(
+                                        context,
+                                        String.format(
+                                                context.getResources().getString(R.string.failed_to_create_dir),
+                                                newDirName),
+                                        Toast.LENGTH_SHORT
+                                ).show();
                             }
-                        }).setNegativeButton(buttonCancel, new DialogInterface.OnClickListener()
-                        {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                // Force hide keyboard.
-                                InputMethodManager imm = (InputMethodManager)context.getSystemService(Context.INPUT_METHOD_SERVICE);
-                                imm.hideSoftInputFromWindow(input.getWindowToken(), 0);
-                            }
-                        }).show();
-                    }
+                            // Force hide keyboard.
+                            InputMethodManager imm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
+                            imm.hideSoftInputFromWindow(input.getWindowToken(), 0);
+                        }
+                    }).setNegativeButton(buttonCancel, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            // Force hide keyboard.
+                            InputMethodManager imm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
+                            imm.hideSoftInputFromWindow(input.getWindowToken(), 0);
+                        }
+                    }).show();
                 }
-            );
+            });
             titleLayout1.addView(newDirButton);
         }
 
@@ -381,7 +384,7 @@ public class FileDialog
         listAdapter.notifyDataSetChanged();
 
         if (dialogType == DialogType.FILE_OPEN || dialogType == DialogType.FILE_SAVE) {
-            inputTextField.setText(fileName);
+            inputTextField.setText(createFileName());
         }
     }
 

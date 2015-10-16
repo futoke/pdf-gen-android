@@ -1,8 +1,17 @@
 package com.example.ichiro.test;
 
+import android.app.ProgressDialog;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Environment;
+import android.support.v7.app.AlertDialog;
 import android.util.Log;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.EditText;
+import android.widget.Toast;
 
 import com.itextpdf.text.Document;
 import com.itextpdf.text.DocumentException;
@@ -16,37 +25,53 @@ import java.io.OutputStream;
 
 public class PdfGenerator {
     private PdfTask pdfTask;
+    private Context context;
+    private FileDialog fileSaveDialog;
+    private File file;
 
+    public PdfGenerator (Context currentContext) {
+        context = currentContext;
+        pdfTask = new PdfTask();
+    }
+
+    /**
+     * Main method
+     */
     public void execute() {
-        File file;
-        file = createPdfFile(); // TODO: Add if statement here!
-        if (file != null) {
-            try {
-                pdfTask = new PdfTask();
-                pdfTask.execute(file);
-            } catch (Exception e) {
+        fileSaveDialog =  new FileDialog (
+                context,
+                DialogType.FILE_SAVE,
+                new FileDialog.FileDialogListener() {
+                    @Override
+                    public void onChosenDir(String chosenDir) {
+                        /* The code in this function will be executed when the dialog
+                           OK button is pushed */
+                        try {
+                            file = new File(chosenDir);
+                            pdfTask.execute();
+                        } catch (Exception e) {
+                            // TODO
+                        }
+                    }
+                });
 
-            }
-        } else {
-            // TODO: Add debug and change return statement!
-        }
-
+        fileSaveDialog.chooseFileOrDir();
     }
 
-    private File createPdfFile() {
-
-        if (!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
-            return null;
-        } else {
-            String dir = Environment.getExternalStorageDirectory() + File.separator + "pdfdemo";
-
-            File folder = new File(dir);
-            if (!folder.exists()) {
-                folder.mkdirs();
-            }
-            return new File(dir, "test.pdf");
-        }
-    }
+//    private File createPdfFile() {
+//
+//        if (!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
+//            return null;
+//        } else {
+//            String dir = Environment.getExternalStorageDirectory() + File.separator + "pdfdemo";
+//
+//            File folder = new File(dir);
+//            if (!folder.exists()) {
+//                folder.mkdirs();
+//            }
+//            return new File(dir, "test.pdf");
+//        }
+//    }
 
 
     private void fillPdfFile(File file) throws FileNotFoundException, DocumentException {
@@ -59,33 +84,52 @@ public class PdfGenerator {
         doc.close();
     }
 
+    private void viewPdf() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+
+        builder.setMessage("kljaksdjflksajfl;ksadjf;lskdaj");
+        builder.setIcon(android.R.drawable.ic_dialog_info);
+
+        builder.setPositiveButton(R.string.button_ok, new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+                Intent intent = new Intent(Intent.ACTION_VIEW);
+                intent.setDataAndType(Uri.fromFile(file), "application/pdf");
+                intent.setFlags(Intent.FLAG_ACTIVITY_NO_HISTORY);
+                context.startActivity(intent);
+            }
+        });
+
+        builder.setNegativeButton(R.string.button_cancel, new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+            }
+        });
+       builder.show();
+    }
+
     /**
      *
      */
-    private class PdfTask extends AsyncTask<File, Void, Void> {
+    private class PdfTask extends AsyncTask<Void, Void, Void> {
+
+        ProgressDialog dialog;
 
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
+            dialog = ProgressDialog.show(context, "", "Loading. Please wait...", true);
+            dialog.show();
         }
 
         /**
-         * @param files
+         * @param
          * @return
          */
         @Override
-        protected Void doInBackground(File... files) {
-            File file = files[0];
-
+        protected Void doInBackground(Void... params) {
             try {
-                int filesCounter = files.length;
-                if (filesCounter == 1) {
-                    fillPdfFile(file);
-                } else {
-
-                }
+                fillPdfFile(file);
             } catch (DocumentException de) {
-
+                // TODO
             } catch (FileNotFoundException fnfe) {
                 Log.w("ExternalStorage", String.format("Error writing %s", file), fnfe);
             }
@@ -98,6 +142,8 @@ public class PdfGenerator {
         @Override
         protected void onPostExecute(Void result) {
             super.onPostExecute(result);
+            dialog.dismiss();
+            viewPdf();
         }
     }
 

@@ -44,29 +44,8 @@ public class Main extends AppCompatActivity {
      */
     public void onMyButtonClick(View view)
     {
-        final String[] m_chosen = new String[1];
-
-        FileDialog fileSaveDialog =  new FileDialog (
-            Main.this,
-            DialogType.FILE_SAVE,
-            new FileDialog.FileDialogListener() {
-                @Override
-                public void onChosenDir(String chosenDir) {
-                    // The code in this function will be executed when the dialog OK button is pushed
-                    m_chosen[0] = chosenDir;
-                    Toast.makeText(
-                        Main.this,
-                        "Chosen FileOpenDialog File: " + m_chosen[0],
-                        Toast.LENGTH_LONG
-                    ).show();
-                }
-        });
-
-        fileSaveDialog.chooseFileOrDir();
-
-        pdfGenerator = new PdfGenerator();
+        pdfGenerator = new PdfGenerator(Main.this);
         pdfGenerator.execute();
-        Toast.makeText(this, "Зачем вы нажали?", Toast.LENGTH_SHORT).show();
     }
 }
 
