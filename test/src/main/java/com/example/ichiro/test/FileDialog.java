@@ -15,7 +15,7 @@ import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
 import android.os.Environment;
 import android.text.Editable;
-import android.util.Log;
+import android.text.InputType;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
@@ -37,7 +37,7 @@ public class FileDialog
 
     private Context context;
     private TextView auxView;
-    private EditText inputTextField;
+    private EditText inputFileName;
 
     private List<String> subdirs;
     private FileDialogListener fileDialogListener;
@@ -106,6 +106,49 @@ public class FileDialog
     }
 
     /**
+     * @param editText
+     */
+    private void hideKeyboard(EditText editText)
+    {
+        InputMethodManager imm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
+        imm.hideSoftInputFromWindow(editText.getWindowToken(), 0);
+    }
+
+    private void createDir (EditText editText)
+    {
+        Editable newDir = editText.getText();
+        String newDirName = newDir.toString();
+        // Create new directory.
+        if (createSubDir(dir + File.separator + newDirName)) {
+            // Navigate into the new directory.
+            dir += File.separator + newDirName;
+            updateDirectory();
+        } else {
+            // TODO: Message to log!
+            Toast.makeText(
+                    context,
+                    String.format(
+                            context.getResources().getString(R.string.err_failed_to_create_dir),
+                            newDirName),
+                    Toast.LENGTH_SHORT
+            ).show();
+        }
+    }
+
+    private void createFile() {
+        // Current directory chosen.
+        // Call registered listener supplied with the chosen directory.
+        if (fileDialogListener != null) {
+            if (dialogType == DialogType.FILE_OPEN || dialogType == DialogType.FILE_SAVE) {
+                fileName = inputFileName.getText() + EMPTY_STRING;
+                fileDialogListener.onChosenDir(dir + File.separator + fileName);
+            } else {
+                fileDialogListener.onChosenDir(dir);
+            }
+        }
+    }
+
+    /**
      * The method loads a directory chooser dialog for an initial input 'dir' directory.
      *
      * @param currentDir Absolute path to the current directory.
@@ -166,32 +209,41 @@ public class FileDialog
             }
         }
 
-        AlertDialog.Builder dialogBuilder = createDirectoryChooserDialog(
+        AlertDialog.Builder builder = createDirectoryChooserDialog(
                 currentDir,
                 subdirs,
                 new SimpleFileDialogOnClickListener()
         );
 
-        dialogBuilder.setPositiveButton(buttonOk, new OnClickListener() {
+        builder.setPositiveButton(buttonOk, new OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
-                // Current directory chosen.
-                // Call registered listener supplied with the chosen directory.
-                if (fileDialogListener != null) {
-                    if (dialogType == DialogType.FILE_OPEN || dialogType == DialogType.FILE_SAVE) {
-                        fileName = inputTextField.getText() + EMPTY_STRING;
-                        fileDialogListener.onChosenDir(dir + File.separator + fileName);
-                    } else {
-                        fileDialogListener.onChosenDir(dir);
-                    }
-                }
+                createFile();
+                hideKeyboard(inputFileName);
             }
         });
-        dialogBuilder.setNegativeButton(buttonCancel, null);
-        final AlertDialog dirsDialog = dialogBuilder.create();
-
-        // Show directory chooser dialog.
+        builder.setNegativeButton(buttonCancel, new OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                hideKeyboard(inputFileName);
+            }
+        });
+        final AlertDialog dirsDialog = builder.create();
         dirsDialog.show();
+
+        inputFileName.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+            @Override
+            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                if (actionId == EditorInfo.IME_ACTION_DONE) {
+                    createFile();
+//
+                    hideKeyboard(inputFileName);
+                    dirsDialog.dismiss();
+//                    inputFileName.requestFocus();
+                }
+                return false;
+            }
+        });
     }
 
     private boolean createSubDir(String newDir)
@@ -245,7 +297,7 @@ public class FileDialog
             List<String> listItems,
             DialogInterface.OnClickListener onClickListener)
     {
-        AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(context);
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
         // Create title text showing file select type.
         TextView mainView = new TextView(context);
 
@@ -283,7 +335,6 @@ public class FileDialog
 
         if (dialogType == DialogType.DIR_SELECT || dialogType == DialogType.FILE_SAVE) {
 
-
             // Create New Folder Button.
             Button newDirButton = new Button(context);
             newDirButton.setLayoutParams(
@@ -297,45 +348,44 @@ public class FileDialog
             newDirButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    final EditText input = new EditText(context);
+                    final EditText inputDirName = new EditText(context);
+
+                    inputDirName.setInputType(InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS);
                     // Force show keyboard.
-                    input.requestFocus();
+                    inputDirName.requestFocus();
                     InputMethodManager imm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
                     imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, InputMethodManager.HIDE_IMPLICIT_ONLY);
 
-                    // Show new folder name input dialog
-                    new AlertDialog.Builder(context).
-                            setTitle(context.getResources().getString(R.string.new_directory_name)).
-                            setView(input).setPositiveButton(buttonOk, new DialogInterface.OnClickListener() {
+                    final AlertDialog.Builder builder = new AlertDialog.Builder(context);
+                    builder.setTitle(context.getResources().getString(R.string.new_directory_name));
+                    builder.setView(inputDirName);
+
+                    builder.setPositiveButton(buttonOk, new DialogInterface.OnClickListener() {
                         public void onClick(DialogInterface dialog, int whichButton) {
-                            Editable newDir = input.getText();
-                            String newDirName = newDir.toString();
-                            // Create new directory.
-                            if (createSubDir(dir + File.separator + newDirName)) {
-                                // Navigate into the new directory.
-                                dir += File.separator + newDirName;
-                                updateDirectory();
-                            } else {
-                                Toast.makeText(
-                                        context,
-                                        String.format(
-                                                context.getResources().getString(R.string.failed_to_create_dir),
-                                                newDirName),
-                                        Toast.LENGTH_SHORT
-                                ).show();
-                            }
-                            // Force hide keyboard.
-                            InputMethodManager imm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
-                            imm.hideSoftInputFromWindow(input.getWindowToken(), 0);
+                            createDir(inputDirName);
+                            inputFileName.requestFocus();
                         }
-                    }).setNegativeButton(buttonCancel, new DialogInterface.OnClickListener() {
+                    });
+                    builder.setNegativeButton(buttonCancel, new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
-                            // Force hide keyboard.
-                            InputMethodManager imm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
-                            imm.hideSoftInputFromWindow(input.getWindowToken(), 0);
+                            hideKeyboard(inputDirName);
                         }
-                    }).show();
+                    });
+                    final AlertDialog newDirDialog = builder.create();
+                    newDirDialog.show();
+
+                    inputDirName.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+                        @Override
+                        public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                                createDir(inputDirName);
+                                newDirDialog.dismiss();
+                                inputFileName.requestFocus();
+                            }
+                            return false;
+                        }
+                    });
                 }
             });
             titleLayout1.addView(newDirButton);
@@ -359,32 +409,33 @@ public class FileDialog
         titleLayout.addView(auxView);
 
         if (dialogType == DialogType.FILE_OPEN || dialogType == DialogType.FILE_SAVE) {
-            inputTextField = new EditText(context);
-            inputTextField.setText(createFileName());
-            titleLayout.addView(inputTextField);
+            inputFileName = new EditText(context);
+            inputFileName.setInputType(InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS);
+            inputFileName.setText(createFileName());
+
+            titleLayout.addView(inputFileName);
         }
 
         // Set Views and Finish Dialog builder.
-        dialogBuilder.setView(titleLayout);
-        dialogBuilder.setCustomTitle(titleLayout1);
+        builder.setView(titleLayout);
+        builder.setCustomTitle(titleLayout1);
         listAdapter = createListAdapter(listItems);
-        dialogBuilder.setSingleChoiceItems(listAdapter, -1, onClickListener);
-        dialogBuilder.setCancelable(false);
-        return dialogBuilder;
+        builder.setSingleChoiceItems(listAdapter, -1, onClickListener);
+        builder.setCancelable(false);
+        return builder;
     }
 
     /**
      *
      */
-    private void updateDirectory()
-    {
+    private void updateDirectory() {
         subdirs.clear();
         subdirs.addAll(getDirectories(dir));
         auxView.setText(dir);
         listAdapter.notifyDataSetChanged();
 
         if (dialogType == DialogType.FILE_OPEN || dialogType == DialogType.FILE_SAVE) {
-            inputTextField.setText(createFileName());
+            inputFileName.setText(createFileName());
         }
     }
 

@@ -87,7 +87,12 @@ public class PdfGenerator {
     private void viewPdf() {
         AlertDialog.Builder builder = new AlertDialog.Builder(context);
 
-        builder.setMessage("kljaksdjflksajfl;ksadjf;lskdaj");
+        builder.setMessage(
+            String.format(
+                context.getResources().getString(R.string.msg_file_written),
+                file.toString()
+            )
+        );
         builder.setIcon(android.R.drawable.ic_dialog_info);
 
         builder.setPositiveButton(R.string.button_ok, new DialogInterface.OnClickListener() {
@@ -98,7 +103,6 @@ public class PdfGenerator {
                 context.startActivity(intent);
             }
         });
-
         builder.setNegativeButton(R.string.button_cancel, new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int id) {
             }

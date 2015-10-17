@@ -9,5 +9,6 @@
     <string name="date_time_format">MMddyyyy_HHmmss</string>
     <string name="new_directory">Новая директория</string>
     <string name="new_directory_name">Введите имя директории</string>
-    <string name="failed_to_create_dir">Ошибка создания новой директории %s</string>
+    <string name="err_failed_to_create_dir">Ошибка создания новой директории %s</string>
+    <string name="msg_file_written">Файл %s записан.\n Хотите посмотреть его?</string>
 </resources>
