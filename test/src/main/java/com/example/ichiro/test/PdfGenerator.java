@@ -103,7 +103,7 @@ public class PdfGenerator {
                 context.startActivity(intent);
             }
         });
-        builder.setNegativeButton(R.string.button_cancel, new DialogInterface.OnClickListener() {
+        builder.setNegativeButton(R.string.button_no, new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int id) {
             }
         });

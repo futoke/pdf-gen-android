@@ -13,6 +13,8 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Environment;
 import android.text.Editable;
 import android.text.InputType;
@@ -141,7 +143,32 @@ public class FileDialog
         if (fileDialogListener != null) {
             if (dialogType == DialogType.FILE_OPEN || dialogType == DialogType.FILE_SAVE) {
                 fileName = inputFileName.getText() + EMPTY_STRING;
-                fileDialogListener.onChosenDir(dir + File.separator + fileName);
+                final String filePath = dir + File.separator + fileName;
+                if (!new File(filePath).exists()) {
+                    fileDialogListener.onChosenDir(filePath);
+                } else {
+                    android.support.v7.app.AlertDialog.Builder builder = new android.support.v7.app.AlertDialog.Builder(context);
+
+                    builder.setMessage(
+                            String.format(
+                                    context.getResources().getString(R.string.msg_file_exists),
+                                    fileName
+                            )
+                    );
+                    builder.setIcon(android.R.drawable.ic_dialog_info);
+
+                    builder.setPositiveButton(R.string.button_ok, new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int id) {
+                            fileDialogListener.onChosenDir(filePath);
+                        }
+                    });
+                    builder.setNegativeButton(R.string.button_cancel, new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int id) {
+                            chooseFileOrDir();
+                        }
+                    });
+                    builder.show();
+                }
             } else {
                 fileDialogListener.onChosenDir(dir);
             }
@@ -201,10 +228,8 @@ public class FileDialog
                 if ((new File(dir).isFile())) {
                     dir = dirOld;
                     // If you uncomment this line, you can overwrite files.
-                    // fileName = sel;
-                    // TODO: implement duplicate checking!!!
+//                     fileName = sel;
                 }
-
                 updateDirectory();
             }
         }
@@ -236,7 +261,7 @@ public class FileDialog
             public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
                 if (actionId == EditorInfo.IME_ACTION_DONE) {
                     createFile();
-//
+
                     hideKeyboard(inputFileName);
                     dirsDialog.dismiss();
 //                    inputFileName.requestFocus();

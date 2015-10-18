@@ -3,6 +3,7 @@
     <string name="hello_world">Hello world!</string>
     <string name="action_settings">Settings</string>
     <string name="hello_label">New Button</string>
+
     <string name="file_save">Save as..</string>
     <string name="file_open">Open</string>
     <string name="dir_select">Directory selection</string>
@@ -12,6 +13,8 @@
     <string name="date_time_format">yyyyMMdd_HHmmss</string>
     <string name="new_directory">New directory</string>
     <string name="new_directory_name">Enter directory name</string>
-    <string name="failed_to_create_dir">Failed to create %s directory</string>
+    <string name="err_failed_to_create_dir">Failed to create %s directory.</string>
     <string name="msg_file_written">The file %s is written.\n Do you want to view it?.</string>
+    <string name="msg_file_exists">The file %s exists.\n Do you want to overwrite it?</string>
+    <string name="button_no">No</string>
 </resources>
