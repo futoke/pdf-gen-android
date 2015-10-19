@@ -27,14 +27,13 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.List;
 
 public class PdfGenerator {
     private PdfTask pdfTask;
     private Context context;
-    private FileDialog fileSaveDialog;
     private File file;
-
-    private static final String DEST = "result/table.pdf";
 
     private static final Float PAGE_HEIGHT = 595.0f;
     private static final Float TOP_MARGIN = 40.0f;
@@ -358,26 +357,39 @@ public class PdfGenerator {
     }
 
     /**
+     * @param text The text for splitting to equal length chunks.
+     * @param size Size of the chunk.
+     * @return the list of chunks.
+     */
+    public static List<String> splitEqually(String text, int size) {
+        List<String> ret = new ArrayList<>((text.length() + size - 1) / size);
+
+        for (int start = 0; start < text.length(); start += size) {
+            ret.add(text.substring(start, Math.min(text.length(), start + size)));
+        }
+        return ret;
+    }
+
+    /**
      * Main method
      */
     public void execute() {
-        fileSaveDialog =  new FileDialog (
-                context,
-                DialogType.FILE_SAVE,
-                new FileDialog.FileDialogListener() {
-                    @Override
-                    public void onChosenDir(String chosenDir) {
-                        /* The code in this function will be executed when the dialog
-                           OK button is pushed */
-                        try {
-                            file = new File(chosenDir);
-                            pdfTask.execute();
-                        } catch (Exception e) {
-                            // TODO
-                        }
+        FileDialog fileSaveDialog = new FileDialog(
+            context,
+            DialogType.FILE_SAVE,
+            new FileDialog.FileDialogListener() {
+                @Override
+                public void onChosenDir(String chosenDir) {
+                    /* The code in this function will be executed when the dialog
+                       OK button is pushed */
+                    try {
+                        file = new File(chosenDir);
+                        pdfTask.execute();
+                    } catch (Exception e) {
+                        // TODO
                     }
-                });
-
+                }
+            });
         fileSaveDialog.chooseFileOrDir();
     }
 
@@ -448,7 +460,7 @@ public class PdfGenerator {
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
-            dialog = ProgressDialog.show(context, "", "Loading. Please wait...", true);
+            dialog = ProgressDialog.show(context, "", "Generating. Please wait...", true);
             dialog.show();
         }
 
@@ -480,5 +492,4 @@ public class PdfGenerator {
             viewPdfFile();
         }
     }
-
 }
