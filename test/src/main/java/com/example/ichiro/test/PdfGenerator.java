@@ -22,12 +22,15 @@ import com.itextpdf.text.pdf.PdfPCell;
 import com.itextpdf.text.pdf.PdfPTable;
 import com.itextpdf.text.pdf.PdfWriter;
 
+import org.apache.commons.lang3.text.WordUtils;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class PdfGenerator {
@@ -35,73 +38,124 @@ public class PdfGenerator {
     private Context context;
     private File file;
 
+    private String tableName;
+    private String[] cellContent;
+    private String[] cellHeaders;
+    private String[][] pages;
+
+    private static final Byte HEADER_1 = 0;
+    private static final Byte HEADER_3 = 1;
+    private static final Byte HEADER_4 = 2;
+    private static final Byte HEADER_5 = 3;
+    private static final Byte HEADER_6 = 4;
+    private static final Byte HEADER_2 = 5;
+    private static final Byte HEADER_8 = 6;
+    private static final Byte HEADER_81 = 7;
+    private static final Byte HEADER_82 = 8;
+    private static final Byte HEADER_9 = 9;
+    private static final Byte HEADER_7 = 10;
+    private static final Byte HEADER_10 = 11;
+    private static final Byte HEADER_11 = 12;
+
     private static final Float PAGE_HEIGHT = 595.0f;
     private static final Float TOP_MARGIN = 40.0f;
     private static final Float BOTTOM_MARGIN = 2.0f;
     private static final Float LEFT_MARGIN = 2.0f;
     private static final Float RIGHT_MARGIN = 2.0f;
+    private static final String PATH_TO_DROID_SANS = "/system/fonts/DroidSansFallback.ttf";
+    private static final Integer CHUNK_SIZE = 100;
+    private static final Float CELL_FIRST_LINE_INDENT = 20.0f;
 
-    private static final Font tableNameFont = new Font(
-            Font.FontFamily.HELVETICA,
-            18,
-            Font.NORMAL,
-            BaseColor.BLUE
-    );
-    private static final Font headerNameFont = new Font(
-            Font.FontFamily.HELVETICA,
-            12,
-            Font.BOLD,
-            BaseColor.MAGENTA
-    );
-    private static final Font subheaderNameFont = new Font(
-            Font.FontFamily.HELVETICA,
-            10,
-            Font.BOLD,
-            BaseColor.MAGENTA
-    );
-    private static final Font textNameFont = new Font(
-            Font.FontFamily.HELVETICA,
-            10,
-            Font.NORMAL,
-            BaseColor.BLACK
-    );
+    private static BaseFont droidSans;
 
-    BaseFont bf;
-    Font f_title;
-    Font f_text;
+    private static Font tableNameFont;
+    private static Font headerFont;
+    private static Font subHeaderFont;
+    private static Font textFont;
+    private static Font textFontSmall;
 
-    public PdfGenerator (Context currentContext) {
-        context = currentContext;
+    public
+    PdfGenerator (
+            Context context,
+            String tableName,
+            String[] cellContent,
+            String[] cellHeaders)
+    {
+        this.context = context;
+        this.tableName = tableName;
+        this.cellContent = cellContent;
+        this.cellHeaders = cellHeaders;
+
         pdfTask = new PdfTask();
+        try {
+            droidSans = BaseFont.createFont(
+                    PATH_TO_DROID_SANS,
+                    BaseFont.IDENTITY_H,
+                    BaseFont.EMBEDDED
+            );
+        } catch (Exception ex) {
+            ex.printStackTrace(); // TODO
+        }
+
+        tableNameFont = new Font(droidSans, 18, Font.NORMAL, BaseColor.BLUE);
+        headerFont = new Font(droidSans, 12, Font.BOLD, BaseColor.MAGENTA);
+        subHeaderFont = new Font(droidSans, 10, Font.BOLD, BaseColor.MAGENTA);
+        textFont = new Font(droidSans, 10, Font.NORMAL, BaseColor.BLACK);
+        textFontSmall = new Font(droidSans, 10, Font.NORMAL, BaseColor.BLACK);
     }
 
-    public void setFont() throws DocumentException, IOException {
-        try {
-            bf = BaseFont.createFont("/system/fonts/DroidSansFallback.ttf", BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
-            f_title = new Font(bf, 14);
-            f_text = new Font(bf);
-        } catch (Exception ex) {
-            ex.printStackTrace();
+    private void
+    divIntoPages()
+    {
+        Integer cols;
+        Integer rows;
+        String lineSeparator;
+        List<List<String>> cellChunks;
+
+        rows = 0;
+        cols = cellContent.length;
+        cellChunks = new ArrayList<>();
+        lineSeparator = System.getProperty("line.separator");
+
+        for (int i = 0; i < cols; i++) {
+            String buffer;
+            List<String> dividedCell;
+
+            buffer = WordUtils.wrap(cellContent[i], CHUNK_SIZE);
+            dividedCell = new ArrayList<>(
+                    Arrays.asList(
+                            buffer.split(lineSeparator)
+                    )
+            );
+            cellChunks.add(dividedCell);
+
+            if (rows < dividedCell.size()) {
+                rows = dividedCell.size();
+            }
+        }
+
+        pages = new String[rows][cols];
+
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                try {
+                    pages[i][j] = cellChunks.get(j).get(i);;
+                } catch (IndexOutOfBoundsException iobe) {
+                    pages[i][j] = "";
+                }
+
+            }
         }
     }
 
-//    public static void main(String[] args) throws IOException,
-//            DocumentException {
-//        File file = new File(DEST);
-//        file.getParentFile().mkdirs();
-//
-//    }
-
-    private void createTitle(Document document, String title)
-            throws DocumentException, IOException {
-
-
-        setFont();
-
+    private void
+    createTitle(Document document, String title)
+            throws DocumentException, IOException
+    {
         Paragraph titleParagraph = new Paragraph();
         float spacingAfter = 10.0f;
 
-        titleParagraph.setFont(f_title);
+        titleParagraph.setFont(tableNameFont);
         titleParagraph.add(title);
         titleParagraph.setAlignment(Element.ALIGN_CENTER);
         // Instead of the top page margin.
@@ -111,33 +165,81 @@ public class PdfGenerator {
         document.add(titleParagraph);
     }
 
-    private void fillPdfFile(File file) throws IOException, DocumentException {
-        Document document = new Document(
-                PageSize.A4.rotate(),
-                LEFT_MARGIN,
-                RIGHT_MARGIN,
-            /*
-            Actually, top margin will define in the padding field
-            of the title paragraph.
-            */
-                TOP_MARGIN - TOP_MARGIN,
-                BOTTOM_MARGIN
-        );
-        OutputStream fos = new FileOutputStream(file);
-        PdfWriter.getInstance(document, fos);
-        document.open();
-
-        ///////////////////////////////////////////////////////////////////
-
-        createTitle(document, "Table name Font 4 (Я - кириллица, 我 - 中國)");
-
-        /////////////////////////////////////////////////////////////////////
-
-        Paragraph table = new Paragraph();
-        Paragraph cellHeader;
-        Paragraph cellSubheader;
+    private PdfPCell
+    createCell(String header, String content)
+    {
+        PdfPCell cell;
         Paragraph cellContent;
-        PdfPCell cell, nestedTableCell;
+
+        cell = new PdfPCell();
+        cellContent = new Paragraph(content, textFont);
+
+        cellContent.setFirstLineIndent(20.0f);
+
+        cell.addElement(new Paragraph(header, headerFont));
+        cell.addElement(cellContent);
+
+        return cell;
+    }
+
+    private PdfPCell
+    createNestedTable(
+            String header,
+            String subHeader_1,
+            String subHeader_2,
+            String content_1,
+            String content_2)
+    {
+        PdfPTable nestedTable = new PdfPTable(1);
+        nestedTable.setWidthPercentage(100.0f);
+        nestedTable.setSpacingBefore(0.0f);
+        nestedTable.setSpacingAfter(0.0f);
+
+        // Row 1 in the nested table.
+        Paragraph cellHeader = new Paragraph(header, headerFont);
+        Paragraph cellSubheader = new Paragraph(subHeader_1, subHeaderFont);
+        cellSubheader.setFirstLineIndent(CELL_FIRST_LINE_INDENT);
+        Paragraph cellContent = new Paragraph(content_1, textFontSmall);
+        cellContent.setFirstLineIndent(30.0f);
+
+        PdfPCell nestedTableCell = new PdfPCell();
+        nestedTableCell.addElement(cellHeader);
+        nestedTableCell.addElement(cellSubheader);
+        nestedTableCell.addElement(cellContent);
+
+        nestedTableCell.setBorder(PdfPCell.NO_BORDER);
+        nestedTableCell.setFixedHeight(
+                (PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN) / 6
+        );
+        nestedTable.addCell(nestedTableCell);
+
+        // Row 2 in the nested table.
+        cellSubheader = new Paragraph(subHeader_2, subHeaderFont);
+        cellSubheader.setFirstLineIndent(CELL_FIRST_LINE_INDENT);
+        cellContent = new Paragraph(content_2, textFont);
+        cellContent.setFirstLineIndent(30.0f);
+
+        nestedTableCell = new PdfPCell();
+        nestedTableCell.addElement(cellHeader);
+        nestedTableCell.addElement(cellSubheader);
+        nestedTableCell.addElement(cellContent);
+        nestedTableCell.setBorder(PdfPCell.NO_BORDER);
+        nestedTable.addCell(nestedTableCell);
+
+        PdfPCell cell = new PdfPCell();
+        cell.setPadding(0);
+        cell.addElement(nestedTable);
+
+        return cell;
+    }
+
+    private void
+    createTable(Document document, String[] cellContentChunks)
+            throws DocumentException
+    {
+        Paragraph table = new Paragraph();
+        float rowHeight;
+        PdfPCell cell;
 
         // The main table fits top and bottom parts.
         PdfPTable mainTable = new PdfPTable(1);
@@ -146,10 +248,9 @@ public class PdfGenerator {
         mainTable.setSpacingAfter(0.0f);
 
         // Calculate row height.
-        float rowHeight;
         rowHeight = (PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN) / 3;
 
-        // Define the top part.
+        // Define the top part of the table.
         PdfPCell topTableCell = new PdfPCell();
         topTableCell.setBorder(PdfPCell.NO_BORDER);
         topTableCell.setPadding(0);
@@ -160,155 +261,55 @@ public class PdfGenerator {
         topTable.setSpacingAfter(0.0f);
 
         // Cell 1 (row 1).
-        cellHeader = new Paragraph("Header 1 Font 1", headerNameFont);
-
-        cellContent = new Paragraph("Text 1 Font 2", textNameFont);
-        cellContent.setFirstLineIndent(20.0f);
-
-        cell = new PdfPCell();
-
-        cell.addElement(cellHeader);
-        cell.addElement(cellContent);
-
+        cell = createCell(cellHeaders[HEADER_1], cellContentChunks[0]);
         cell.setFixedHeight(rowHeight);
         cell.setBorder(Rectangle.TOP | Rectangle.RIGHT | Rectangle.LEFT);
         topTable.addCell(cell);
 
         // Cell 2.
-        cellHeader = new Paragraph("Header 3 Font 1", headerNameFont);
-
-        cellContent = new Paragraph("Text 3 Font 2", textNameFont);
-        cellContent.setFirstLineIndent(20.0f);
-
-        cell = new PdfPCell();
-
-        cell.addElement(cellHeader);
-        cell.addElement(cellContent);
+        cell = createCell(cellHeaders[HEADER_3], cellContentChunks[1]);
         topTable.addCell(cell);
 
         // Cell 3.
-        cellHeader = new Paragraph("Header 4 Font 1", headerNameFont);
-
-        cellContent = new Paragraph("Text 4 Font 2", textNameFont);
-        cellContent.setFirstLineIndent(20.0f);
-
-        cell = new PdfPCell();
-
-        cell.addElement(cellHeader);
-        cell.addElement(cellContent);
-
+        cell = createCell(cellHeaders[HEADER_4], cellContentChunks[2]);
         cell.setRowspan(2);
         topTable.addCell(cell);
 
         // Cell 4.
-        cellHeader = new Paragraph("Header 5 Font 1", headerNameFont);
-
-        cellContent = new Paragraph("Text 5 Font 2", textNameFont);
-        cellContent.setFirstLineIndent(20.0f);
-
-        cell = new PdfPCell();
-
-        cell.addElement(cellHeader);
-        cell.addElement(cellContent);
-
+        cell = createCell(cellHeaders[HEADER_5], cellContentChunks[3]);
         topTable.addCell(cell);
 
         // Cell 5.
-        cellHeader = new Paragraph("Header 6 Font 1", headerNameFont);
-
-        cellContent = new Paragraph("Text 6 Font 2", textNameFont);
-        cellContent.setFirstLineIndent(20.0f);
-
-        cell = new PdfPCell();
-
-        cell.addElement(cellHeader);
-        cell.addElement(cellContent);
-
+        cell = createCell(cellHeaders[HEADER_6], cellContentChunks[4]);
         cell.setBorder(Rectangle.TOP | Rectangle.RIGHT | Rectangle.LEFT);
         topTable.addCell(cell);
 
         // Cell 6 (row2).
-        cellHeader = new Paragraph("Header 2 Font 1", headerNameFont);
-
-        cellContent = new Paragraph("Text 2 Font 2", textNameFont);
-        cellContent.setFirstLineIndent(20.0f);
-
-        cell = new PdfPCell();
-
-        cell.addElement(cellHeader);
-        cell.addElement(cellContent);
-
+        cell = createCell(cellHeaders[HEADER_2], cellContentChunks[5]);
         cell.setFixedHeight(rowHeight);
         cell.setBorder(Rectangle.BOTTOM | Rectangle.RIGHT | Rectangle.LEFT);
         topTable.addCell(cell);
 
         // Cell 7 fits a nested table.
-        PdfPTable nestedTable = new PdfPTable(1);
-        nestedTable.setWidthPercentage(100.0f);
-        nestedTable.setSpacingBefore(0.0f);
-        nestedTable.setSpacingAfter(0.0f);
-
-        // Row 1 in the nested table.
-        cellHeader = new Paragraph("Header 9 Font 1", headerNameFont);
-        cellSubheader = new Paragraph("SubHeader 8_1 Font 3", subheaderNameFont);
-        cellSubheader.setFirstLineIndent(20.0f);
-        cellContent = new Paragraph("Text 8_1 Font 2", textNameFont);
-        cellContent.setFirstLineIndent(30.0f);
-
-        nestedTableCell = new PdfPCell();
-        nestedTableCell.addElement(cellHeader);
-        nestedTableCell.addElement(cellSubheader);
-        nestedTableCell.addElement(cellContent);
-
-        nestedTableCell.setBorder(PdfPCell.NO_BORDER);
-        nestedTableCell.setFixedHeight(rowHeight / 2.0f);
-        nestedTable.addCell(nestedTableCell);
-
-        // Row 2 in the nested table.
-        cellSubheader = new Paragraph("SubHeader 8_2 Font 3", subheaderNameFont);
-        cellSubheader.setFirstLineIndent(20.0f);
-        cellContent = new Paragraph("Text 8_2 Font 2", textNameFont);
-        cellContent.setFirstLineIndent(30.0f);
-
-        nestedTableCell = new PdfPCell();
-        nestedTableCell.addElement(cellHeader);
-        nestedTableCell.addElement(cellSubheader);
-        nestedTableCell.addElement(cellContent);
-        nestedTableCell.setBorder(PdfPCell.NO_BORDER);
-        nestedTable.addCell(nestedTableCell);
-
-        cell = new PdfPCell();
-        cell.setPadding(0);
-        cell.addElement(nestedTable);
+        cell = createNestedTable(
+                cellHeaders[HEADER_8],
+                cellHeaders[HEADER_81],
+                cellHeaders[HEADER_82],
+                cellContentChunks[6],
+                cellContentChunks[7]
+        );
         topTable.addCell(cell);
 
         // Cell 8.
-        cellHeader = new Paragraph("Header 9 Font 1", headerNameFont);
-
-        cellContent = new Paragraph("Text 9 Font 2", textNameFont);
-        cellContent.setFirstLineIndent(20.0f);
-
-        cell = new PdfPCell();
-
-        cell.addElement(cellHeader);
-        cell.addElement(cellContent);
-
+        cell = createCell(cellHeaders[HEADER_9], cellContentChunks[8]);
         topTable.addCell(cell);
 
         // Cell 9.
-        cellHeader = new Paragraph("Header 7 Font 1", headerNameFont);
-
-        cellContent = new Paragraph("Text 7 Font 2", textNameFont);
-        cellContent.setFirstLineIndent(20.0f);
-
-        cell = new PdfPCell();
-
-        cell.addElement(cellHeader);
-        cell.addElement(cellContent);
-
+        cell = createCell(cellHeaders[HEADER_7], cellContentChunks[9]);
         cell.setBorder(Rectangle.BOTTOM | Rectangle.RIGHT | Rectangle.LEFT);
         topTable.addCell(cell);
 
+        // Add the top table into the main table.
         topTableCell.addElement(topTable);
         mainTable.addCell(topTableCell);
 
@@ -323,51 +324,50 @@ public class PdfGenerator {
         bottomTable.setSpacingAfter(0.0f);
 
         // Left cell of the bottom table.
-        cellHeader = new Paragraph("Header 10 Font 1", headerNameFont);
-
-        cellContent = new Paragraph("Text 10 Font 2", textNameFont);
-        cellContent.setFirstLineIndent(20.0f);
-
-        cell = new PdfPCell();
-
-        cell.addElement(cellHeader);
-        cell.addElement(cellContent);
+        cell = createCell(cellHeaders[HEADER_10], cellContentChunks[10]);
         cell.setFixedHeight(rowHeight);
         bottomTable.addCell(cell);
 
         // Right cell of the bottom table.
-        cellHeader = new Paragraph("Header 11 Font 1", headerNameFont);
-
-        cellContent = new Paragraph("Text 11 Font 2", textNameFont);
-        cellContent.setFirstLineIndent(20.0f);
-
-        cell = new PdfPCell();
-
-        cell.addElement(cellHeader);
-        cell.addElement(cellContent);
+        cell = createCell(cellHeaders[HEADER_11], cellContentChunks[11]);
         bottomTable.addCell(cell);
 
+        // Add the bottom table into the main table.
         bottomTableCell.addElement(bottomTable);
         mainTable.addCell(bottomTableCell);
 
         table.add(mainTable);
-        document.add(table);
 
-        document.close();
+        document.add(table);
     }
 
-    /**
-     * @param text The text for splitting to equal length chunks.
-     * @param size Size of the chunk.
-     * @return the list of chunks.
-     */
-    public static List<String> splitEqually(String text, int size) {
-        List<String> ret = new ArrayList<>((text.length() + size - 1) / size);
+    private void
+    fillPdfFile(File file)
+            throws IOException, DocumentException
+    {
+        Document document = new Document(
+                PageSize.A4.rotate(),
+                LEFT_MARGIN,
+                RIGHT_MARGIN,
+                /*
+                Actually, top margin will define in the padding field
+                of the title paragraph.
+                */
+                TOP_MARGIN - TOP_MARGIN,
+                BOTTOM_MARGIN
+        );
+        OutputStream fos = new FileOutputStream(file);
+        PdfWriter.getInstance(document, fos);
+        document.open();
 
-        for (int start = 0; start < text.length(); start += size) {
-            ret.add(text.substring(start, Math.min(text.length(), start + size)));
+        divIntoPages();
+
+        for (int i = 0; i < pages.length; i++) {
+            document.newPage();
+            createTitle(document, tableName);
+            createTable(document, pages[i]);
         }
-        return ret;
+        document.close();
     }
 
     /**
@@ -406,22 +406,6 @@ public class PdfGenerator {
 //            }
 //            return new File(dir, "test.pdf");
 //        }
-//    }
-
-
-//    private void fillPdfFile(File file) throws FileNotFoundException, DocumentException {
-//        OutputStream fos = new FileOutputStream(file);
-//        try {
-//            createPdf(DEST);
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-//        Document doc = new Document();
-//        PdfWriter.getInstance(doc, fos);
-//
-//        doc.open();
-//        doc.add(new Paragraph("Hello pdf lalalalala!!"));
-//        doc.close();
 //    }
 
     private void viewPdfFile() {
