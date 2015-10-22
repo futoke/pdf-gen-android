@@ -57,13 +57,41 @@ public class PdfGenerator {
     private static final Byte HEADER_10 = 11;
     private static final Byte HEADER_11 = 12;
 
+    private static final Byte CONTENT_1 = 0;
+    private static final Byte CONTENT_3 = 1;
+    private static final Byte CONTENT_4 = 2;
+    private static final Byte CONTENT_5 = 3;
+    private static final Byte CONTENT_6 = 4;
+    private static final Byte CONTENT_2 = 5;
+    private static final Byte CONTENT_81 = 6;
+    private static final Byte CONTENT_82 = 7;
+    private static final Byte CONTENT_9 = 8;
+    private static final Byte CONTENT_7 = 9;
+    private static final Byte CONTENT_10 = 10;
+    private static final Byte CONTENT_11 = 11;
+
+    private static final Integer ENGLISH_CHUNK_SIZES[] = {
+            300, // Content 1.
+            300, // Content 3.
+            750, // Content 4.
+            300, // Content 5.
+            300, // Content 6.
+            300, // Content 2.
+            200, // Content 81.
+            200, // Content 82.
+            300, // Content 9.
+            300, // Content 7.
+            850, // Content 10.
+            850  // Content 11.
+    };
+
     private static final Float PAGE_HEIGHT = 595.0f;
     private static final Float TOP_MARGIN = 40.0f;
     private static final Float BOTTOM_MARGIN = 2.0f;
     private static final Float LEFT_MARGIN = 2.0f;
     private static final Float RIGHT_MARGIN = 2.0f;
     private static final String PATH_TO_DROID_SANS = "/system/fonts/DroidSansFallback.ttf";
-    private static final Integer CHUNK_SIZE = 100;
+//    private static final Integer CHUNK_SIZE = 100;
     private static final Float CELL_FIRST_LINE_INDENT = 20.0f;
 
     private static BaseFont droidSans;
@@ -74,6 +102,12 @@ public class PdfGenerator {
     private static Font textFont;
     private static Font textFontSmall;
 
+    /**
+     * @param context
+     * @param tableName
+     * @param cellContent
+     * @param cellHeaders
+     */
     public
     PdfGenerator (
             Context context,
@@ -87,23 +121,11 @@ public class PdfGenerator {
         this.cellHeaders = cellHeaders;
 
         pdfTask = new PdfTask();
-        try {
-            droidSans = BaseFont.createFont(
-                    PATH_TO_DROID_SANS,
-                    BaseFont.IDENTITY_H,
-                    BaseFont.EMBEDDED
-            );
-        } catch (Exception ex) {
-            ex.printStackTrace(); // TODO
-        }
-
-        tableNameFont = new Font(droidSans, 18, Font.NORMAL, BaseColor.BLUE);
-        headerFont = new Font(droidSans, 12, Font.BOLD, BaseColor.MAGENTA);
-        subHeaderFont = new Font(droidSans, 10, Font.BOLD, BaseColor.MAGENTA);
-        textFont = new Font(droidSans, 10, Font.NORMAL, BaseColor.BLACK);
-        textFontSmall = new Font(droidSans, 10, Font.NORMAL, BaseColor.BLACK);
     }
 
+    /**
+     *
+     */
     private void
     divIntoPages()
     {
@@ -121,7 +143,7 @@ public class PdfGenerator {
             String buffer;
             List<String> dividedCell;
 
-            buffer = WordUtils.wrap(cellContent[i], CHUNK_SIZE);
+            buffer = WordUtils.wrap(cellContent[i], ENGLISH_CHUNK_SIZES[i]);
             dividedCell = new ArrayList<>(
                     Arrays.asList(
                             buffer.split(lineSeparator)
@@ -149,6 +171,32 @@ public class PdfGenerator {
     }
 
     private void
+    createFonts()
+    {
+        try {
+            droidSans = BaseFont.createFont(
+                    PATH_TO_DROID_SANS,
+                    BaseFont.IDENTITY_H,
+                    BaseFont.EMBEDDED
+            );
+        } catch (Exception ex) {
+            ex.printStackTrace(); // TODO
+        }
+
+        tableNameFont = new Font(droidSans, 18, Font.NORMAL, BaseColor.BLUE);
+        headerFont = new Font(droidSans, 12, Font.BOLD, BaseColor.MAGENTA);
+        subHeaderFont = new Font(droidSans, 10, Font.BOLD, BaseColor.MAGENTA);
+        textFont = new Font(droidSans, 10, Font.NORMAL, BaseColor.BLACK);
+        textFontSmall = new Font(droidSans, 7, Font.NORMAL, BaseColor.BLACK);
+    }
+
+    /**
+     * @param document
+     * @param title
+     * @throws DocumentException
+     * @throws IOException
+     */
+    private void
     createTitle(Document document, String title)
             throws DocumentException, IOException
     {
@@ -165,6 +213,11 @@ public class PdfGenerator {
         document.add(titleParagraph);
     }
 
+    /**
+     * @param header
+     * @param content
+     * @return
+     */
     private PdfPCell
     createCell(String header, String content)
     {
@@ -182,6 +235,14 @@ public class PdfGenerator {
         return cell;
     }
 
+    /**
+     * @param header
+     * @param subHeader_1
+     * @param subHeader_2
+     * @param content_1
+     * @param content_2
+     * @return
+     */
     private PdfPCell
     createNestedTable(
             String header,
@@ -216,7 +277,7 @@ public class PdfGenerator {
         // Row 2 in the nested table.
         cellSubheader = new Paragraph(subHeader_2, subHeaderFont);
         cellSubheader.setFirstLineIndent(CELL_FIRST_LINE_INDENT);
-        cellContent = new Paragraph(content_2, textFont);
+        cellContent = new Paragraph(content_2, textFontSmall);
         cellContent.setFirstLineIndent(30.0f);
 
         nestedTableCell = new PdfPCell();
@@ -233,6 +294,11 @@ public class PdfGenerator {
         return cell;
     }
 
+    /**
+     * @param document
+     * @param cellContentChunks
+     * @throws DocumentException
+     */
     private void
     createTable(Document document, String[] cellContentChunks)
             throws DocumentException
@@ -261,31 +327,31 @@ public class PdfGenerator {
         topTable.setSpacingAfter(0.0f);
 
         // Cell 1 (row 1).
-        cell = createCell(cellHeaders[HEADER_1], cellContentChunks[0]);
+        cell = createCell(cellHeaders[HEADER_1], cellContentChunks[CONTENT_1]);
         cell.setFixedHeight(rowHeight);
         cell.setBorder(Rectangle.TOP | Rectangle.RIGHT | Rectangle.LEFT);
         topTable.addCell(cell);
 
         // Cell 2.
-        cell = createCell(cellHeaders[HEADER_3], cellContentChunks[1]);
+        cell = createCell(cellHeaders[HEADER_3], cellContentChunks[CONTENT_3]);
         topTable.addCell(cell);
 
         // Cell 3.
-        cell = createCell(cellHeaders[HEADER_4], cellContentChunks[2]);
+        cell = createCell(cellHeaders[HEADER_4], cellContentChunks[CONTENT_4]);
         cell.setRowspan(2);
         topTable.addCell(cell);
 
         // Cell 4.
-        cell = createCell(cellHeaders[HEADER_5], cellContentChunks[3]);
+        cell = createCell(cellHeaders[HEADER_5], cellContentChunks[CONTENT_5]);
         topTable.addCell(cell);
 
         // Cell 5.
-        cell = createCell(cellHeaders[HEADER_6], cellContentChunks[4]);
+        cell = createCell(cellHeaders[HEADER_6], cellContentChunks[CONTENT_6]);
         cell.setBorder(Rectangle.TOP | Rectangle.RIGHT | Rectangle.LEFT);
         topTable.addCell(cell);
 
         // Cell 6 (row2).
-        cell = createCell(cellHeaders[HEADER_2], cellContentChunks[5]);
+        cell = createCell(cellHeaders[HEADER_2], cellContentChunks[CONTENT_2]);
         cell.setFixedHeight(rowHeight);
         cell.setBorder(Rectangle.BOTTOM | Rectangle.RIGHT | Rectangle.LEFT);
         topTable.addCell(cell);
@@ -295,17 +361,17 @@ public class PdfGenerator {
                 cellHeaders[HEADER_8],
                 cellHeaders[HEADER_81],
                 cellHeaders[HEADER_82],
-                cellContentChunks[6],
-                cellContentChunks[7]
+                cellContentChunks[CONTENT_81],
+                cellContentChunks[CONTENT_82]
         );
         topTable.addCell(cell);
 
         // Cell 8.
-        cell = createCell(cellHeaders[HEADER_9], cellContentChunks[8]);
+        cell = createCell(cellHeaders[HEADER_9], cellContentChunks[CONTENT_9]);
         topTable.addCell(cell);
 
         // Cell 9.
-        cell = createCell(cellHeaders[HEADER_7], cellContentChunks[9]);
+        cell = createCell(cellHeaders[HEADER_7], cellContentChunks[CONTENT_7]);
         cell.setBorder(Rectangle.BOTTOM | Rectangle.RIGHT | Rectangle.LEFT);
         topTable.addCell(cell);
 
@@ -324,12 +390,12 @@ public class PdfGenerator {
         bottomTable.setSpacingAfter(0.0f);
 
         // Left cell of the bottom table.
-        cell = createCell(cellHeaders[HEADER_10], cellContentChunks[10]);
+        cell = createCell(cellHeaders[HEADER_10], cellContentChunks[CONTENT_10]);
         cell.setFixedHeight(rowHeight);
         bottomTable.addCell(cell);
 
         // Right cell of the bottom table.
-        cell = createCell(cellHeaders[HEADER_11], cellContentChunks[11]);
+        cell = createCell(cellHeaders[HEADER_11], cellContentChunks[CONTENT_11]);
         bottomTable.addCell(cell);
 
         // Add the bottom table into the main table.
@@ -345,6 +411,8 @@ public class PdfGenerator {
     fillPdfFile(File file)
             throws IOException, DocumentException
     {
+        createFonts();
+
         Document document = new Document(
                 PageSize.A4.rotate(),
                 LEFT_MARGIN,
@@ -373,13 +441,17 @@ public class PdfGenerator {
     /**
      * Main method
      */
-    public void execute() {
+    public void
+    execute()
+    {
         FileDialog fileSaveDialog = new FileDialog(
             context,
             DialogType.FILE_SAVE,
             new FileDialog.FileDialogListener() {
                 @Override
-                public void onChosenDir(String chosenDir) {
+                public void
+                onChosenDir(String chosenDir)
+                {
                     /* The code in this function will be executed when the dialog
                        OK button is pushed */
                     try {
@@ -408,7 +480,12 @@ public class PdfGenerator {
 //        }
 //    }
 
-    private void viewPdfFile() {
+    /**
+     *
+     */
+    private void
+    viewPdfFile()
+    {
         AlertDialog.Builder builder = new AlertDialog.Builder(context);
 
         builder.setMessage(
@@ -420,7 +497,9 @@ public class PdfGenerator {
         builder.setIcon(android.R.drawable.ic_dialog_info);
 
         builder.setPositiveButton(R.string.button_ok, new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface dialog, int id) {
+            public void
+            onClick(DialogInterface dialog, int id)
+            {
                 Intent intent = new Intent(Intent.ACTION_VIEW);
                 intent.setDataAndType(Uri.fromFile(file), "application/pdf");
                 intent.setFlags(Intent.FLAG_ACTIVITY_NO_HISTORY);
@@ -428,7 +507,9 @@ public class PdfGenerator {
             }
         });
         builder.setNegativeButton(R.string.button_no, new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface dialog, int id) {
+            public void
+            onClick(DialogInterface dialog, int id)
+            {
             }
         });
        builder.show();
@@ -437,12 +518,19 @@ public class PdfGenerator {
     /**
      *
      */
-    private class PdfTask extends AsyncTask<Void, Void, Void> {
-
+    private class
+            PdfTask
+            extends AsyncTask<Void, Void, Void>
+    {
         ProgressDialog dialog;
 
+        /**
+         *
+         */
         @Override
-        protected void onPreExecute() {
+        protected void
+        onPreExecute()
+        {
             super.onPreExecute();
             dialog = ProgressDialog.show(context, "", "Generating. Please wait...", true);
             dialog.show();
@@ -453,7 +541,9 @@ public class PdfGenerator {
          * @return
          */
         @Override
-        protected Void doInBackground(Void... params) {
+        protected Void
+        doInBackground(Void... params)
+        {
             try {
                 fillPdfFile(file);
             } catch (DocumentException de) {
@@ -470,7 +560,9 @@ public class PdfGenerator {
          * @param result
          */
         @Override
-        protected void onPostExecute(Void result) {
+        protected void
+        onPostExecute(Void result)
+        {
             super.onPostExecute(result);
             dialog.dismiss();
             viewPdfFile();

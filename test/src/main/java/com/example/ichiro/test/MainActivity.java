@@ -17,6 +17,11 @@ public class
         extends AppCompatActivity
         implements OnClickListener
 {
+    public String tableName;
+    public String[] cellHeaders;
+    public String[] cellContent;
+    private View view;
+
     @Override
     protected void
     onCreate(Bundle savedInstanceState)
@@ -58,10 +63,6 @@ public class
 
         return super.onOptionsItemSelected(item);
     }
-
-    public String tableName;
-    public String[] cellHeaders;
-    public String[] cellContent;
 
     protected void
     doExport(Context context,
@@ -119,7 +120,8 @@ public class
                         getResources().getString(R.string.Text9Font2Ru),
                         getResources().getString(R.string.Text7Font2Ru),
                         getResources().getString(R.string.Text10Font2Ru),
-                        getResources().getString(R.string.Text11Font2Ru)};
+                        getResources().getString(R.string.Text11Font2Ru)
+                };
 
                 //*** PUT YOUR PDF export method for Russian text
                 doExport(MainActivity.this, tableName, cellContent, cellHeaders);
@@ -173,11 +175,20 @@ public class
                         Toast.LENGTH_SHORT
                 ).show();
                 tableName = "表名称字体 4";
-                // The array of Cell headers in Chinese.
+                // The array of the cell headers in Chinese.
                 cellHeaders = new String[] {"标题 1 字体 1",
-                        "标题 3 字体 1", "标题 4 字体 1","标题 5 字体 1","标题 6 字体 1",
-                        "标题 2 字体 1","标题 8 字体 1","标题 8_1 字体 3","标题 8_2 字体 3",
-                        "标题 9 字体 1","标题 7 字体 1","标题 10 字体 1","标题 11 字体 1"
+                        "标题 3 字体 1",
+                        "标题 4 字体 1",
+                        "标题 5 字体 1",
+                        "标题 6 字体 1",
+                        "标题 2 字体 1",
+                        "标题 8 字体 1",
+                        "标题 8_1 字体 3",
+                        "标题 8_2 字体 3",
+                        "标题 9 字体 1",
+                        "标题 7 字体 1",
+                        "标题 10 字体 1",
+                        "标题 11 字体 1"
                 };
                 cellContent = new String[] {
                         getResources().getString(R.string.Text1Font2Cn),
