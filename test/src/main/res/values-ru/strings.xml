@@ -6,6 +6,7 @@
     <string name="button_ok">ОК</string>
     <string name="button_cancel">Отмена</string>
     <string name="button_no">Нет</string>
+    <string name="button_yes">Да</string>
     <string name="default_pdf_name">Файл</string>
     <string name="date_time_format">MMddyyyy_HHmmss</string>
     <string name="new_directory">Новая директория</string>
@@ -13,4 +14,5 @@
     <string name="err_failed_to_create_dir">Ошибка создания новой директории %s.</string>
     <string name="msg_file_written">Файл %s записан.\n Хотите посмотреть его?</string>
     <string name="msg_file_exists">Файл %s существует.\n Хотите переписать его?</string>
+    <string name="msg_file_generating">Минуточку, файл создается…</string>
 </resources>

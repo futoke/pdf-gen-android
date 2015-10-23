@@ -20,7 +20,6 @@ public class
     public String tableName;
     public String[] cellHeaders;
     public String[] cellContent;
-    private View view;
 
     @Override
     protected void

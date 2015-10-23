@@ -22,6 +22,7 @@ import com.itextpdf.text.pdf.PdfPCell;
 import com.itextpdf.text.pdf.PdfPTable;
 import com.itextpdf.text.pdf.PdfWriter;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.text.WordUtils;
 
 import java.io.File;
@@ -42,6 +43,12 @@ public class PdfGenerator {
     private String[] cellContent;
     private String[] cellHeaders;
     private String[][] pages;
+
+    private static final String LINE_SEPARATOR = System.getProperty("line.separator");
+
+    private static final byte ENGLISH = 0;
+    private static final byte RUSSIAN = 1;
+    private static final byte CHINESE = 2;
 
     private static final Byte HEADER_1 = 0;
     private static final Byte HEADER_3 = 1;
@@ -84,6 +91,34 @@ public class PdfGenerator {
             850, // Content 10.
             850  // Content 11.
     };
+    private static final Integer RUSSIAN_CHUNK_SIZES[] = {
+            280, // Content 1.
+            250, // Content 3.
+            630, // Content 4.
+            250, // Content 5.
+            280, // Content 6.
+            280, // Content 2.
+            200, // Content 81.
+            200, // Content 82.
+            280, // Content 9.
+            280, // Content 7.
+            650, // Content 10.
+            650  // Content 11.
+    };
+    private static final Integer CHINESE_CHUNK_SIZES[] = {
+            130, // Content 1.
+            130, // Content 3.
+            300, // Content 4.
+            130, // Content 5.
+            130, // Content 6.
+            130, // Content 2.
+            80, // Content 81.
+            80, // Content 82.
+            130, // Content 9.
+            130, // Content 7.
+            300, // Content 10.
+            300  // Content 11.
+    };
 
     private static final Float PAGE_HEIGHT = 595.0f;
     private static final Float TOP_MARGIN = 40.0f;
@@ -91,7 +126,6 @@ public class PdfGenerator {
     private static final Float LEFT_MARGIN = 2.0f;
     private static final Float RIGHT_MARGIN = 2.0f;
     private static final String PATH_TO_DROID_SANS = "/system/fonts/DroidSansFallback.ttf";
-//    private static final Integer CHUNK_SIZE = 100;
     private static final Float CELL_FIRST_LINE_INDENT = 20.0f;
 
     private static BaseFont droidSans;
@@ -104,7 +138,7 @@ public class PdfGenerator {
 
     /**
      * @param context
-     * @param tableName
+     * @param tableName The table name. Place in the header.
      * @param cellContent
      * @param cellHeaders
      */
@@ -124,6 +158,48 @@ public class PdfGenerator {
     }
 
     /**
+     * The function detects language of a string.
+     *
+     * @param str The input string.
+     * @return Language as a constant from the list {RUSSIAN, ENGLISH, CHINESE}.
+     */
+    private byte
+    detectLang(String str)
+    {
+        Integer[] freqLangList;
+        Integer freqLang;
+        Byte mostCommonLang;
+        Character.UnicodeBlock ub;
+
+        mostCommonLang = ENGLISH;
+        freqLangList = new Integer[]{0, 0, 0};
+        freqLang = 0;
+
+        for (char c : str.toCharArray() ) {
+            if (Character.isLetter(c)) {
+                ub = Character.UnicodeBlock.of(c);
+                if (ub == Character.UnicodeBlock.BASIC_LATIN) {
+                    freqLangList[ENGLISH] += 1;
+                } else if (ub == Character.UnicodeBlock.CYRILLIC) {
+                    freqLangList[RUSSIAN] += 1;
+                } else {
+                    freqLangList[CHINESE] += 1;
+                }
+            }
+        }
+
+        for (Byte i = 0; i < 3; i++) {
+            if (freqLangList[i] > freqLang) {
+                freqLang = freqLangList[i];
+                mostCommonLang = i;
+            }
+        }
+
+        return mostCommonLang;
+    }
+
+
+    /**
      *
      */
     private void
@@ -131,22 +207,55 @@ public class PdfGenerator {
     {
         Integer cols;
         Integer rows;
-        String lineSeparator;
+        Integer cnt;
+        Byte lang;
+        String buffer;
+        List<String> dividedCell;
         List<List<String>> cellChunks;
 
         rows = 0;
         cols = cellContent.length;
         cellChunks = new ArrayList<>();
-        lineSeparator = System.getProperty("line.separator");
+
+
+        // Combine all strings to detect language.
+        lang = detectLang(StringUtils.join(cellContent, ""));
+
 
         for (int i = 0; i < cols; i++) {
-            String buffer;
-            List<String> dividedCell;
+            switch (lang) {
+                case ENGLISH:
+                    buffer = WordUtils.wrap(cellContent[i], ENGLISH_CHUNK_SIZES[i]);
+                    break;
+                case RUSSIAN:
+                    buffer = WordUtils.wrap(cellContent[i], RUSSIAN_CHUNK_SIZES[i]);
+                    break;
+                case CHINESE:
+                    buffer = "";
+                    cnt = 0;
+                    for (char c : cellContent[i].toCharArray()) {
+                        buffer += c;
+                        if (cnt.equals(CHINESE_CHUNK_SIZES[i])) {
+                            cnt = 0;
+                            buffer += LINE_SEPARATOR;
+                        } else {
+                            cnt++;
+                        }
+                    }
+//                    buffer = WordUtils.wrap(
+//                            cellContent[i],
+//                            CHINESE_CHUNK_SIZES[i],
+//                            LINE_SEPARATOR,
+//                            true
+//                    );
+                    break;
+                default:
+                    buffer = WordUtils.wrap(cellContent[i], ENGLISH_CHUNK_SIZES[i]);
+            }
 
-            buffer = WordUtils.wrap(cellContent[i], ENGLISH_CHUNK_SIZES[i]);
             dividedCell = new ArrayList<>(
                     Arrays.asList(
-                            buffer.split(lineSeparator)
+                            buffer.split(LINE_SEPARATOR)
                     )
             );
             cellChunks.add(dividedCell);
@@ -161,7 +270,7 @@ public class PdfGenerator {
         for (int i = 0; i < rows; i++) {
             for (int j = 0; j < cols; j++) {
                 try {
-                    pages[i][j] = cellChunks.get(j).get(i);;
+                    pages[i][j] = cellChunks.get(j).get(i);
                 } catch (IndexOutOfBoundsException iobe) {
                     pages[i][j] = "";
                 }
@@ -170,6 +279,9 @@ public class PdfGenerator {
         }
     }
 
+    /**
+     *
+     */
     private void
     createFonts()
     {
@@ -496,7 +608,7 @@ public class PdfGenerator {
         );
         builder.setIcon(android.R.drawable.ic_dialog_info);
 
-        builder.setPositiveButton(R.string.button_ok, new DialogInterface.OnClickListener() {
+        builder.setPositiveButton(R.string.button_yes, new DialogInterface.OnClickListener() {
             public void
             onClick(DialogInterface dialog, int id)
             {
@@ -532,7 +644,12 @@ public class PdfGenerator {
         onPreExecute()
         {
             super.onPreExecute();
-            dialog = ProgressDialog.show(context, "", "Generating. Please wait...", true);
+            dialog = ProgressDialog.show(
+                    context,
+                    "",
+                    context.getResources().getString(R.string.msg_file_generating),
+                    true
+            );
             dialog.show();
         }
 
