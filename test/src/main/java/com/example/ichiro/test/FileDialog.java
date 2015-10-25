@@ -9,12 +9,10 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 
-import android.app.AlertDialog;
+import android.support.v7.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
-import android.content.Intent;
-import android.net.Uri;
 import android.os.Environment;
 import android.text.Editable;
 import android.text.InputType;
@@ -34,7 +32,6 @@ import android.widget.Toast;
 
 public class FileDialog
 {
-
     private DialogType dialogType;
 
     private Context context;
@@ -69,7 +66,8 @@ public class FileDialog
      * @param currentDialogType
      * @param currentFileDialogListener
      */
-    public FileDialog(
+    public
+    FileDialog(
             Context currentContext,
             DialogType currentDialogType,
             FileDialogListener currentFileDialogListener)
@@ -96,7 +94,8 @@ public class FileDialog
     /**
      * The method loads a directory chooser dialog for an initial default sdcard directory.
      */
-    public void chooseFileOrDir()
+    public void
+    chooseFileOrDir()
     {
         // Initial directory is sdcard directory.
         if (dir.equals(EMPTY_STRING)) {
@@ -110,13 +109,17 @@ public class FileDialog
     /**
      * @param editText
      */
-    private void hideKeyboard(EditText editText)
+    private void
+    hideKeyboard(EditText editText)
     {
-        InputMethodManager imm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
+        InputMethodManager imm = (InputMethodManager) context.getSystemService(
+                Context.INPUT_METHOD_SERVICE
+        );
         imm.hideSoftInputFromWindow(editText.getWindowToken(), 0);
     }
 
-    private void createDir (EditText editText)
+    private void
+    createDir (EditText editText)
     {
         Editable newDir = editText.getText();
         String newDirName = newDir.toString();
@@ -137,7 +140,11 @@ public class FileDialog
         }
     }
 
-    private void createFile() {
+    /**
+     *
+     */
+    private void
+    createFile() {
         // Current directory chosen.
         // Call registered listener supplied with the chosen directory.
         if (fileDialogListener != null) {
@@ -147,7 +154,7 @@ public class FileDialog
                 if (!new File(filePath).exists()) {
                     fileDialogListener.onChosenDir(filePath);
                 } else {
-                    android.support.v7.app.AlertDialog.Builder builder = new android.support.v7.app.AlertDialog.Builder(context);
+                    AlertDialog.Builder builder = new AlertDialog.Builder(context);
 
                     builder.setMessage(
                             String.format(
@@ -180,7 +187,8 @@ public class FileDialog
      *
      * @param currentDir Absolute path to the current directory.
      */
-    public void chooseFileOrDir(String currentDir)
+    public void
+    chooseFileOrDir(String currentDir)
     {
         File dirFile = new File(currentDir);
         if (!dirFile.exists() || !dirFile.isDirectory()) {
@@ -199,7 +207,8 @@ public class FileDialog
         /**
          *
          */
-        class SimpleFileDialogOnClickListener implements DialogInterface.OnClickListener
+        class SimpleFileDialogOnClickListener
+                implements DialogInterface.OnClickListener
         {
             /**
              * @param dialog
@@ -271,13 +280,15 @@ public class FileDialog
         });
     }
 
-    private boolean createSubDir(String newDir)
+    private boolean
+    createSubDir(String newDir)
     {
         File newDirFile = new File(newDir);
         return !newDirFile.exists() && newDirFile.mkdir();
     }
 
-    private List<String> getDirectories(String dir)
+    private List<String>
+    getDirectories(String dir)
     {
         List<String> dirs = new ArrayList<>();
         try {
@@ -317,7 +328,8 @@ public class FileDialog
     }
 
     // Start dialog definition.
-    private AlertDialog.Builder createDirectoryChooserDialog(
+    private AlertDialog.Builder
+    createDirectoryChooserDialog(
             String title,
             List<String> listItems,
             DialogInterface.OnClickListener onClickListener)
@@ -453,7 +465,8 @@ public class FileDialog
     /**
      *
      */
-    private void updateDirectory() {
+    private void
+    updateDirectory() {
         subdirs.clear();
         subdirs.addAll(getDirectories(dir));
         auxView.setText(dir);
@@ -468,12 +481,18 @@ public class FileDialog
      * @param items
      * @return
      */
-    private ArrayAdapter<String> createListAdapter(List<String> items)
+    private ArrayAdapter<String>
+    createListAdapter(List<String> items)
     {
-        return new ArrayAdapter<String>(context, android.R.layout.select_dialog_item, android.R.id.text1, items)
+        return new ArrayAdapter<String>(
+                context,
+                android.R.layout.select_dialog_item,
+                android.R.id.text1,
+                items)
         {
             @Override
-            public View getView(int position, View convertView, ViewGroup parent)
+            public View
+            getView(int position, View convertView, ViewGroup parent)
             {
                 View v = super.getView(position, convertView, parent);
                 if (v instanceof TextView) {
@@ -490,7 +509,8 @@ public class FileDialog
     /**
      * @return
      */
-    private String createFileName()
+    private String
+    createFileName()
     {
         Date date;
         String currentDateTime;

@@ -4,6 +4,7 @@ import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.res.AssetManager;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.support.v7.app.AlertDialog;
@@ -22,6 +23,13 @@ import com.itextpdf.text.pdf.PdfPCell;
 import com.itextpdf.text.pdf.PdfPTable;
 import com.itextpdf.text.pdf.PdfWriter;
 
+import net.lingala.zip4j.core.ZipFile;
+import net.lingala.zip4j.exception.ZipException;
+import net.lingala.zip4j.io.ZipInputStream;
+import net.lingala.zip4j.model.ZipParameters;
+import net.lingala.zip4j.util.Zip4jConstants;
+
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.text.WordUtils;
 
@@ -29,6 +37,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -37,7 +46,7 @@ import java.util.List;
 public class PdfGenerator {
     private PdfTask pdfTask;
     private Context context;
-    private File file;
+    private File file; // The name of the generated file with path.
 
     private String tableName;
     private String[] cellContent;
@@ -45,6 +54,8 @@ public class PdfGenerator {
     private String[][] pages;
 
     private static final String LINE_SEPARATOR = System.getProperty("line.separator");
+    private static final String DOCX_FILE_TEMPLATE = "template.docx";
+    private static final String DOCX_DOCUMENT_PATH = "word/document.xml";
 
     private static final byte ENGLISH = 0;
     private static final byte RUSSIAN = 1;
@@ -519,8 +530,69 @@ public class PdfGenerator {
         document.add(table);
     }
 
+    /**
+     * @param destFilePath
+     */
     private void
-    fillPdfFile(File file)
+    copyTemplateFromAssets(File destFilePath)
+    {
+        AssetManager assetManager = context.getAssets();
+        InputStream in = null;
+        OutputStream out = null;
+
+        try {
+            in = assetManager.open(DOCX_FILE_TEMPLATE);
+            out = new FileOutputStream(destFilePath);
+            copyFile(in, out);
+        } catch(IOException e) {
+            Log.e(
+                    "tag", // TODO: 25.10.15
+                    String.format(
+                            "Failed to copy asset file: %s",
+                            destFilePath
+                    ),
+                    e
+            );
+        } finally {
+            if (in != null) {
+                try {
+                    in.close();
+                } catch (IOException e) {
+                    // TODO: 25.10.15
+                }
+            }
+            if (out != null) {
+                try {
+                    out.close();
+                } catch (IOException e) {
+                    // TODO: 25.10.15
+                }
+            }
+        }
+    }
+
+    /**
+     * @param in
+     * @param out
+     * @throws IOException
+     */
+    private void
+    copyFile(InputStream in, OutputStream out)
+            throws IOException
+    {
+        byte[] buffer = new byte[1024];
+        int read;
+        while((read = in.read(buffer)) != -1) {
+            out.write(buffer, 0, read);
+        }
+    }
+
+    /**
+     * @throws IOException
+     * @throws DocumentException
+     */
+    private void
+    fillPdfFile()
             throws IOException, DocumentException
     {
         createFonts();
@@ -540,14 +612,53 @@ public class PdfGenerator {
         PdfWriter.getInstance(document, fos);
         document.open();
 
-        divIntoPages();
+//        divIntoPages();
 
-        for (int i = 0; i < pages.length; i++) {
-            document.newPage();
+//        for (int i = 0; i < pages.length; i++) {
+//            document.newPage();
             createTitle(document, tableName);
-            createTable(document, pages[i]);
-        }
+//            createTable(document, pages[i]);
+//        }
         document.close();
+    }
+
+    private void fillDocxFile() {
+        String documentXml;
+        ZipInputStream zis = null;
+        InputStream is = null;
+
+        File path = new File(String.format("%s%s", file, ".zip")); // FIXME: 25.10.15
+        
+        copyTemplateFromAssets(path);
+
+        try {
+            ZipFile zipFile = new ZipFile(path);
+            zis = zipFile.getInputStream(zipFile.getFileHeader(DOCX_DOCUMENT_PATH));
+
+            documentXml = IOUtils.toString(zis, "utf-8");
+            documentXml = documentXml.replace("#header-1", "Превед");
+
+            zipFile.removeFile(DOCX_DOCUMENT_PATH);
+
+            ZipParameters parameters = new ZipParameters();
+            parameters.setCompressionMethod(Zip4jConstants.COMP_DEFLATE);
+            parameters.setFileNameInZip(DOCX_DOCUMENT_PATH);
+            parameters.setSourceExternalStream(true);
+
+            is = IOUtils.toInputStream(documentXml);
+            zipFile.addStream(is, parameters);
+        } catch (ZipException e) {
+            e.printStackTrace(); // TODO: 25.10.15  
+        } catch (IOException e) {
+            e.printStackTrace(); // TODO: 25.10.15
+        } finally {
+            try {
+                zis.close();
+                //is.close();
+            } catch (IOException e) {
+                e.printStackTrace(); // TODO: 25.10.15
+            }
+        }
     }
 
     /**
@@ -662,7 +773,8 @@ public class PdfGenerator {
         doInBackground(Void... params)
         {
             try {
-                fillPdfFile(file);
+                fillPdfFile();
+                fillDocxFile();
             } catch (DocumentException de) {
                 // TODO
             } catch (FileNotFoundException fnfe) {
