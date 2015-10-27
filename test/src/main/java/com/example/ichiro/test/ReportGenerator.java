@@ -30,6 +30,7 @@ import net.lingala.zip4j.model.ZipParameters;
 import net.lingala.zip4j.util.Zip4jConstants;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.text.WordUtils;
 
@@ -43,9 +44,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class PdfGenerator {
+public class ReportGenerator {
     private PdfTask pdfTask;
     private Context context;
+    private FileSaveDialog fileSaveDialog;
     private File file; // The name of the generated file with path.
 
     private String tableName;
@@ -55,6 +57,7 @@ public class PdfGenerator {
 
     private static final String LINE_SEPARATOR = System.getProperty("line.separator");
     private static final String DOCX_FILE_TEMPLATE = "template.docx";
+    private static final String DOCX_TABLE_TEMPLATE = "table.xml";
     private static final String DOCX_DOCUMENT_PATH = "word/document.xml";
 
     private static final byte ENGLISH = 0;
@@ -88,10 +91,11 @@ public class PdfGenerator {
     private static final Byte CONTENT_10 = 10;
     private static final Byte CONTENT_11 = 11;
 
+    // Play with this constants to change capacity of the cells.
     private static final Integer ENGLISH_CHUNK_SIZES[] = {
             300, // Content 1.
             300, // Content 3.
-            750, // Content 4.
+            730, // Content 4.
             300, // Content 5.
             300, // Content 6.
             300, // Content 2.
@@ -99,8 +103,8 @@ public class PdfGenerator {
             200, // Content 82.
             300, // Content 9.
             300, // Content 7.
-            850, // Content 10.
-            850  // Content 11.
+            700, // Content 10.
+            700  // Content 11.
     };
     private static final Integer RUSSIAN_CHUNK_SIZES[] = {
             280, // Content 1.
@@ -109,12 +113,12 @@ public class PdfGenerator {
             250, // Content 5.
             280, // Content 6.
             280, // Content 2.
-            200, // Content 81.
-            200, // Content 82.
+            180, // Content 81.
+            180, // Content 82.
             280, // Content 9.
             280, // Content 7.
-            650, // Content 10.
-            650  // Content 11.
+            560, // Content 10.
+            560  // Content 11.
     };
     private static final Integer CHINESE_CHUNK_SIZES[] = {
             130, // Content 1.
@@ -153,8 +157,7 @@ public class PdfGenerator {
      * @param cellContent
      * @param cellHeaders
      */
-    public
-    PdfGenerator (
+    public ReportGenerator(
             Context context,
             String tableName,
             String[] cellContent,
@@ -530,11 +533,45 @@ public class PdfGenerator {
         document.add(table);
     }
 
+
+    /**
+     * @return
+     */
+    private
+    String getDocxTable ()
+    {
+        InputStream in = null;
+        AssetManager assetManager = context.getAssets();
+        try {
+            in = assetManager.open(DOCX_TABLE_TEMPLATE);
+            return IOUtils.toString(in, "utf-8");
+        } catch (IOException e) {
+            Log.e(
+                    "tag", // TODO: 25.10.15
+                    String.format(
+                            "Failed to copy asset file: %s",
+                            DOCX_TABLE_TEMPLATE
+                    ),
+                    e
+            );
+        } finally {
+            if (in != null) {
+                try {
+                    in.close();
+                } catch (IOException e) {
+                    // TODO: 25.10.15
+                }
+            }
+        }
+        return null; // FIXME: 26.10.15
+    }
+
+
     /**
      * @param destFilePath
      */
     private void
-    copyTemplateFromAssets(File destFilePath)
+    copyDocxTemplateFromAssets(File destFilePath)
     {
         AssetManager assetManager = context.getAssets();
         InputStream in = null;
@@ -612,31 +649,54 @@ public class PdfGenerator {
         PdfWriter.getInstance(document, fos);
         document.open();
 
-//        divIntoPages();
+        divIntoPages();
 
-//        for (int i = 0; i < pages.length; i++) {
-//            document.newPage();
+        for (int i = 0; i < pages.length; i++) {
+            document.newPage();
             createTitle(document, tableName);
-//            createTable(document, pages[i]);
-//        }
+            createTable(document, pages[i]);
+        }
         document.close();
     }
 
-    private void fillDocxFile() {
-        String documentXml;
-        ZipInputStream zis = null;
-        InputStream is = null;
+    /**
+     *
+     */
+    private void
+    fillDocxFile()
+    {
+        String documentXML;
+        String tableXML;
+        InputStream is;
 
-        File path = new File(String.format("%s%s", file, ".zip")); // FIXME: 25.10.15
+        String tables = "";
+        String[] pageContent;
+        ZipInputStream zis = null;
+
+//        File path = new File(String.format("%s%s", file, ".docx")); // FIXME: 25.10.15
         
-        copyTemplateFromAssets(path);
+        copyDocxTemplateFromAssets(file);
 
         try {
-            ZipFile zipFile = new ZipFile(path);
+            ZipFile zipFile = new ZipFile(file);
             zis = zipFile.getInputStream(zipFile.getFileHeader(DOCX_DOCUMENT_PATH));
 
-            documentXml = IOUtils.toString(zis, "utf-8");
-            documentXml = documentXml.replace("#header-1", "Превед");
+            documentXML = IOUtils.toString(zis, "utf-8");
+            tableXML = getDocxTable();
+
+            divIntoPages();
+
+            for (int i = 0; i < pages.length; i++) {
+                pageContent = ArrayUtils.addAll(cellHeaders, pages[i]);
+                pageContent = ArrayUtils.add(pageContent, tableName);
+                if (tableXML != null) {
+                    tables += String.format(tableXML, (Object[])pageContent);
+                } else {
+                    // TODO: 27.10.15
+                }
+            }
+
+            documentXML = String.format(documentXML, tables);
 
             zipFile.removeFile(DOCX_DOCUMENT_PATH);
 
@@ -645,7 +705,7 @@ public class PdfGenerator {
             parameters.setFileNameInZip(DOCX_DOCUMENT_PATH);
             parameters.setSourceExternalStream(true);
 
-            is = IOUtils.toInputStream(documentXml);
+            is = IOUtils.toInputStream(documentXML);
             zipFile.addStream(is, parameters);
         } catch (ZipException e) {
             e.printStackTrace(); // TODO: 25.10.15  
@@ -667,10 +727,9 @@ public class PdfGenerator {
     public void
     execute()
     {
-        FileDialog fileSaveDialog = new FileDialog(
+        fileSaveDialog = new FileSaveDialog(
             context,
-            DialogType.FILE_SAVE,
-            new FileDialog.FileDialogListener() {
+            new FileSaveDialog.FileDialogListener() {
                 @Override
                 public void
                 onChosenDir(String chosenDir)
@@ -724,7 +783,17 @@ public class PdfGenerator {
             onClick(DialogInterface dialog, int id)
             {
                 Intent intent = new Intent(Intent.ACTION_VIEW);
-                intent.setDataAndType(Uri.fromFile(file), "application/pdf");
+                switch (fileSaveDialog.fileType){
+                    case FileSaveDialog.PDF_FILETYPE:
+                        intent.setDataAndType(Uri.fromFile(file), "application/pdf");
+                        break;
+                    case FileSaveDialog.DOCX_FILETYPE:
+                        intent.setDataAndType(
+                                Uri.fromFile(file),
+                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        );
+                        break;
+                }
                 intent.setFlags(Intent.FLAG_ACTIVITY_NO_HISTORY);
                 context.startActivity(intent);
             }
@@ -773,8 +842,14 @@ public class PdfGenerator {
         doInBackground(Void... params)
         {
             try {
-                fillPdfFile();
-                fillDocxFile();
+                switch (fileSaveDialog.fileType){
+                    case FileSaveDialog.PDF_FILETYPE:
+                        fillPdfFile();
+                        break;
+                    case FileSaveDialog.DOCX_FILETYPE:
+                        fillDocxFile();
+                        break;
+                }
             } catch (DocumentException de) {
                 // TODO
             } catch (FileNotFoundException fnfe) {

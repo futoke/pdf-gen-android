@@ -69,14 +69,14 @@ public class
              String[] cellContent,
              String[] cellHeaders)
     {
-        PdfGenerator pdfGenerator;
-        pdfGenerator = new PdfGenerator(
+        ReportGenerator reportGenerator;
+        reportGenerator = new ReportGenerator(
                 context,
                 tableName,
                 cellContent,
                 cellHeaders
         );
-        pdfGenerator.execute();
+        reportGenerator.execute();
     }
 
     @Override

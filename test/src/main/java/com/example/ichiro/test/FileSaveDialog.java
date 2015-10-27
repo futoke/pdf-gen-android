@@ -14,7 +14,6 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
 import android.os.Environment;
-import android.text.Editable;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -23,58 +22,67 @@ import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.Spinner;
+import android.widget.TableLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-public class FileDialog
+enum DialogType {FILE_OPEN, FILE_SAVE, DIR_SELECT}
+
+public class FileSaveDialog
 {
     private DialogType dialogType;
 
     private Context context;
-    private TextView auxView;
+    private TextView dirNameView;
     private EditText inputFileName;
 
     private List<String> subdirs;
     private FileDialogListener fileDialogListener;
     private ArrayAdapter<String> listAdapter;
 
-    private String fileName;
+    private String fullFileName;
     private String sdDir;
     private String dir;
     private String buttonOk;
     private String buttonCancel;
 
+    private final String[] fileTypes = {".pdf", ".docx"};
+
     private final String EMPTY_STRING = "";
     private final String PREVIOUS_LEVEL_DIRECTORY = "..";
+
+    public Integer fileType;
+    public static final int PDF_FILETYPE = 0;
+    public static final int DOCX_FILETYPE = 1;
 
     /**
      * Callback interface for selected directory.
      */
     public interface FileDialogListener
     {
-        void onChosenDir(String chosenDir);
+        void
+        onChosenDir(String chosenDir);
     }
 
     /**
      * Main class
      *
      * @param currentContext
-     * @param currentDialogType
      * @param currentFileDialogListener
      */
-    public
-    FileDialog(
+    public FileSaveDialog(
             Context currentContext,
-            DialogType currentDialogType,
             FileDialogListener currentFileDialogListener)
     {
         context = currentContext;
         fileDialogListener = currentFileDialogListener;
-        dialogType = currentDialogType;
+        dialogType = DialogType.FILE_SAVE;
 
         buttonOk = this.context.getResources().getString(R.string.button_ok);
         buttonCancel = this.context.getResources().getString(R.string.button_cancel);
@@ -87,7 +95,8 @@ public class FileDialog
             sdDir = Environment.getExternalStorageDirectory().getAbsolutePath();
             sdDir = new File(sdDir).getCanonicalPath();
         } catch (IOException ioe) {
-            // TODO: Add handler!
+            // TODO: 27.10.15
+            throw new ReportGeneratorException(ioe.getMessage());
         }
     }
 
@@ -118,18 +127,24 @@ public class FileDialog
         imm.hideSoftInputFromWindow(editText.getWindowToken(), 0);
     }
 
+    private void showKeyboard(EditText editText) {
+        editText.setSelectAllOnFocus(true);
+        editText.requestFocus();
+    }
+
+    /**
+     * @param editText
+     */
     private void
-    createDir (EditText editText)
+    createDir(EditText editText)
     {
-        Editable newDir = editText.getText();
-        String newDirName = newDir.toString();
+        String newDirName = editText.getText().toString();
         // Create new directory.
         if (createSubDir(dir + File.separator + newDirName)) {
             // Navigate into the new directory.
             dir += File.separator + newDirName;
             updateDirectory();
         } else {
-            // TODO: Message to log!
             Toast.makeText(
                     context,
                     String.format(
@@ -138,6 +153,7 @@ public class FileDialog
                     Toast.LENGTH_SHORT
             ).show();
         }
+        hideKeyboard(editText);
     }
 
     /**
@@ -147,34 +163,67 @@ public class FileDialog
     createFile() {
         // Current directory chosen.
         // Call registered listener supplied with the chosen directory.
+        String fileName;
+
         if (fileDialogListener != null) {
-            if (dialogType == DialogType.FILE_OPEN || dialogType == DialogType.FILE_SAVE) {
-                fileName = inputFileName.getText() + EMPTY_STRING;
-                final String filePath = dir + File.separator + fileName;
-                if (!new File(filePath).exists()) {
-                    fileDialogListener.onChosenDir(filePath);
-                } else {
-                    AlertDialog.Builder builder = new AlertDialog.Builder(context);
-
-                    builder.setMessage(
-                            String.format(
-                                    context.getResources().getString(R.string.msg_file_exists),
-                                    fileName
-                            )
+            if (dialogType == DialogType.FILE_OPEN ||
+                dialogType == DialogType.FILE_SAVE)
+            {
+                fileName = inputFileName.getText().toString();
+                if (!fileName.equals("")) {
+                    fullFileName = String.format(
+                            "%s%s%s",
+                            fileName,
+                            fileTypes[fileType],
+                            EMPTY_STRING
                     );
-                    builder.setIcon(android.R.drawable.ic_dialog_info);
 
-                    builder.setPositiveButton(R.string.button_ok, new DialogInterface.OnClickListener() {
-                        public void onClick(DialogInterface dialog, int id) {
-                            fileDialogListener.onChosenDir(filePath);
-                        }
-                    });
-                    builder.setNegativeButton(R.string.button_cancel, new DialogInterface.OnClickListener() {
-                        public void onClick(DialogInterface dialog, int id) {
-                            chooseFileOrDir();
-                        }
-                    });
-                    builder.show();
+                    final String filePath = dir + File.separator + fullFileName;
+                    if (!new File(filePath).exists()) {
+                        fileDialogListener.onChosenDir(filePath);
+                    } else {
+                        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+
+                        builder.setMessage(
+                                String.format(
+                                        context.getResources().getString(R.string.msg_file_exists),
+                                        fullFileName
+                                )
+                        );
+                        builder.setIcon(android.R.drawable.ic_dialog_info);
+
+                        builder.setPositiveButton(
+                                R.string.button_ok,
+                                new DialogInterface.OnClickListener()
+                        {
+                            public void
+                            onClick(DialogInterface dialog, int id)
+                            {
+                                fileDialogListener.onChosenDir(filePath);
+                            }
+                        });
+                        builder.setNegativeButton(
+                                R.string.button_cancel,
+                                new DialogInterface.OnClickListener()
+                        {
+                            public void
+                            onClick(DialogInterface dialog, int id)
+                            {
+                                chooseFileOrDir();
+                                inputFileName.setText(EMPTY_STRING);
+                            }
+                        });
+                        builder.show();
+                    }
+
+                } else {
+                    Toast.makeText(
+                            context,
+                            context.getResources().getString(R.string.err_file_name_is_empty),
+                            Toast.LENGTH_SHORT
+                    ).show();
+                    chooseFileOrDir();
+                    inputFileName.setText(EMPTY_STRING);
                 }
             } else {
                 fileDialogListener.onChosenDir(dir);
@@ -231,13 +280,14 @@ public class FileDialog
                 } else {
                     dir += File.separator + sel;
                 }
-                fileName = createFileName();
+
+                fullFileName = "";
 
                 // If the selection is a regular file.
                 if ((new File(dir).isFile())) {
                     dir = dirOld;
                     // If you uncomment this line, you can overwrite files.
-//                     fileName = sel;
+//                     fullFileName = sel;
                 }
                 updateDirectory();
             }
@@ -248,6 +298,8 @@ public class FileDialog
                 subdirs,
                 new SimpleFileDialogOnClickListener()
         );
+
+        showKeyboard(inputFileName);
 
         builder.setPositiveButton(buttonOk, new OnClickListener() {
             @Override
@@ -270,7 +322,6 @@ public class FileDialog
             public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
                 if (actionId == EditorInfo.IME_ACTION_DONE) {
                     createFile();
-
                     hideKeyboard(inputFileName);
                     dirsDialog.dismiss();
 //                    inputFileName.requestFocus();
@@ -336,9 +387,9 @@ public class FileDialog
     {
         AlertDialog.Builder builder = new AlertDialog.Builder(context);
         // Create title text showing file select type.
-        TextView mainView = new TextView(context);
+        TextView dialogTitleView = new TextView(context);
 
-        mainView.setLayoutParams(
+        dialogTitleView.setLayoutParams(
                 new LayoutParams(
                         LayoutParams.MATCH_PARENT,
                         LayoutParams.WRAP_CONTENT
@@ -346,29 +397,29 @@ public class FileDialog
         );
         switch (dialogType) {
             case FILE_OPEN:
-                mainView.setText(context.getResources().getString(R.string.file_open));
+                dialogTitleView.setText(context.getResources().getString(R.string.file_open));
                 break;
             case FILE_SAVE:
-                mainView.setText(context.getResources().getString(R.string.file_save));
+                dialogTitleView.setText(context.getResources().getString(R.string.file_save));
                 break;
             case DIR_SELECT:
-                mainView.setText(context.getResources().getString(R.string.dir_select));
+                dialogTitleView.setText(context.getResources().getString(R.string.dir_select));
                 break;
             default:
-                mainView.setText(context.getResources().getString(R.string.file_save));
+                dialogTitleView.setText(context.getResources().getString(R.string.file_save));
                 break;
         }
 
         // Need to make this a variable Save as, Open, Select Directory.
-        mainView.setGravity(Gravity.CENTER_VERTICAL | Gravity.CENTER_HORIZONTAL);
-        mainView.setBackgroundResource(R.color.dark_grey);
+        dialogTitleView.setGravity(Gravity.CENTER_VERTICAL | Gravity.CENTER_HORIZONTAL);
+        dialogTitleView.setBackgroundResource(R.color.dark_grey);
         // The method getColor is deprecated but I need to use it for compatibility purposes.
-        mainView.setTextColor(context.getResources().getColor(android.R.color.white));
+        dialogTitleView.setTextColor(context.getResources().getColor(android.R.color.white));
 
         // Create custom view for AlertDialog title.
-        LinearLayout titleLayout1 = new LinearLayout(context);
-        titleLayout1.setOrientation(LinearLayout.VERTICAL);
-        titleLayout1.addView(mainView);
+        LinearLayout titleLayout = new LinearLayout(context);
+        titleLayout.setOrientation(LinearLayout.VERTICAL);
+        titleLayout.addView(dialogTitleView);
 
         if (dialogType == DialogType.DIR_SELECT || dialogType == DialogType.FILE_SAVE) {
 
@@ -389,9 +440,14 @@ public class FileDialog
 
                     inputDirName.setInputType(InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS);
                     // Force show keyboard.
-                    inputDirName.requestFocus();
-                    InputMethodManager imm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
-                    imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, InputMethodManager.HIDE_IMPLICIT_ONLY);
+                    showKeyboard(inputDirName);
+                    InputMethodManager imm = (InputMethodManager) context.getSystemService(
+                            Context.INPUT_METHOD_SERVICE
+                    );
+                    imm.toggleSoftInput(
+                            InputMethodManager.SHOW_FORCED,
+                            InputMethodManager.HIDE_IMPLICIT_ONLY
+                    );
 
                     final AlertDialog.Builder builder = new AlertDialog.Builder(context);
                     builder.setTitle(context.getResources().getString(R.string.new_directory_name));
@@ -400,7 +456,7 @@ public class FileDialog
                     builder.setPositiveButton(buttonOk, new DialogInterface.OnClickListener() {
                         public void onClick(DialogInterface dialog, int whichButton) {
                             createDir(inputDirName);
-                            inputFileName.requestFocus();
+                            showKeyboard(inputFileName);
                         }
                     });
                     builder.setNegativeButton(buttonCancel, new DialogInterface.OnClickListener() {
@@ -418,44 +474,100 @@ public class FileDialog
                             if (actionId == EditorInfo.IME_ACTION_DONE) {
                                 createDir(inputDirName);
                                 newDirDialog.dismiss();
-                                inputFileName.requestFocus();
+                                showKeyboard(inputFileName);
                             }
                             return false;
                         }
                     });
                 }
             });
-            titleLayout1.addView(newDirButton);
+            titleLayout.addView(newDirButton);
         }
 
-        // Create View with folder path and entry text box.
-        LinearLayout titleLayout = new LinearLayout(context);
-        titleLayout.setOrientation(LinearLayout.VERTICAL);
+        // Create View with folder path and entry text box and file type extension.
+        LinearLayout createFilePathLayout = new LinearLayout(context);
+        createFilePathLayout.setOrientation(LinearLayout.VERTICAL);
 
-        auxView = new TextView(context);
-        auxView.setLayoutParams(new LayoutParams(
-                LayoutParams.MATCH_PARENT,
-                LayoutParams.WRAP_CONTENT)
+        dirNameView = new TextView(context);
+        dirNameView.setLayoutParams(
+                new LayoutParams(
+                        LayoutParams.MATCH_PARENT,
+                        LayoutParams.WRAP_CONTENT
+                )
         );
-        auxView.setBackgroundResource(R.color.dark_grey);
+        dirNameView.setBackgroundResource(R.color.dark_grey);
         // The method getColor is deprecated but I need to use it for compatibility purposes.
-        auxView.setTextColor(context.getResources().getColor(android.R.color.white));
-        auxView.setGravity(Gravity.CENTER_VERTICAL | Gravity.CENTER_HORIZONTAL);
-        auxView.setText(title);
+        dirNameView.setTextColor(context.getResources().getColor(android.R.color.white));
+        dirNameView.setGravity(Gravity.CENTER_VERTICAL | Gravity.CENTER_HORIZONTAL);
+        dirNameView.setText(title);
 
-        titleLayout.addView(auxView);
+        createFilePathLayout.addView(dirNameView);
 
         if (dialogType == DialogType.FILE_OPEN || dialogType == DialogType.FILE_SAVE) {
+
+            // Create input for the file name.
             inputFileName = new EditText(context);
+            inputFileName.setLayoutParams(
+                    new TableLayout.LayoutParams(
+                            LayoutParams.WRAP_CONTENT,
+                            LayoutParams.MATCH_PARENT,
+                            0.9f
+                    )
+            );
             inputFileName.setInputType(InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS);
             inputFileName.setText(createFileName());
 
-            titleLayout.addView(inputFileName);
+            // Create spinner for the file extension/
+            final Spinner fileTypeSpinner = new Spinner(context);
+            fileTypeSpinner.setLayoutParams(
+                    new LayoutParams(
+                            LayoutParams.WRAP_CONTENT, // Width.
+                            LayoutParams.WRAP_CONTENT  // Height.
+                    )
+            );
+            fileTypeSpinner.setGravity(Gravity.END);
+            ArrayAdapter<String> spinnerArrayAdapter = new ArrayAdapter<>(
+                    context,
+                    android.R.layout.simple_spinner_dropdown_item,
+                    fileTypes
+            );
+            spinnerArrayAdapter.setDropDownViewResource(
+                    android.R.layout.simple_spinner_dropdown_item
+            );
+            fileTypeSpinner.setAdapter(spinnerArrayAdapter);
+            fileTypeSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+                @Override
+                public void
+                onItemSelected(
+                        AdapterView<?> parent,
+                        View view,
+                        int position,
+                        long id)
+                {
+                    fileType = position;
+                }
+                @Override
+                public void
+                onNothingSelected(AdapterView<?> arg0)
+                {
+                    fileType = PDF_FILETYPE;
+                }
+            });
+
+            // Create nested layout for input and spinner.
+            LinearLayout createFilePathLayout1 = new LinearLayout(context);
+            createFilePathLayout1.setOrientation(LinearLayout.HORIZONTAL);
+
+            createFilePathLayout1.addView(inputFileName);
+            createFilePathLayout1.addView(fileTypeSpinner);
+
+            // Add to parent layout.
+            createFilePathLayout.addView(createFilePathLayout1);
         }
 
         // Set Views and Finish Dialog builder.
-        builder.setView(titleLayout);
-        builder.setCustomTitle(titleLayout1);
+        builder.setView(createFilePathLayout);
+        builder.setCustomTitle(titleLayout);
         listAdapter = createListAdapter(listItems);
         builder.setSingleChoiceItems(listAdapter, -1, onClickListener);
         builder.setCancelable(false);
@@ -469,11 +581,13 @@ public class FileDialog
     updateDirectory() {
         subdirs.clear();
         subdirs.addAll(getDirectories(dir));
-        auxView.setText(dir);
+        dirNameView.setText(dir);
         listAdapter.notifyDataSetChanged();
 
-        if (dialogType == DialogType.FILE_OPEN || dialogType == DialogType.FILE_SAVE) {
-            inputFileName.setText(createFileName());
+        if (dialogType == DialogType.FILE_OPEN ||
+            dialogType == DialogType.FILE_SAVE)
+        {
+//            inputFileName.setText(createFileName());
         }
     }
 
@@ -522,6 +636,6 @@ public class FileDialog
         currentDateTime = new SimpleDateFormat(dateTimeFormat).format(date);
         defaultPdfName = this.context.getResources().getString(R.string.default_pdf_name);
 
-        return String.format("%s_%s.pdf", defaultPdfName, currentDateTime);
+        return String.format("%s_%s", defaultPdfName, currentDateTime);
     }
 } 
