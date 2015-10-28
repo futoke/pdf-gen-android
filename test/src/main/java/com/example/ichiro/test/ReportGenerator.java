@@ -9,6 +9,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.support.v7.app.AlertDialog;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.itextpdf.text.BaseColor;
 import com.itextpdf.text.Document;
@@ -45,7 +46,7 @@ import java.util.Arrays;
 import java.util.List;
 
 public class ReportGenerator {
-    private PdfTask pdfTask;
+    private GenTask genTask;
     private Context context;
     private FileSaveDialog fileSaveDialog;
     private File file; // The name of the generated file with path.
@@ -55,10 +56,18 @@ public class ReportGenerator {
     private String[] cellHeaders;
     private String[][] pages;
 
-    private static final String LINE_SEPARATOR = System.getProperty("line.separator");
+    private static final String LINE_SEPARATOR =
+            System.getProperty("line.separator");
     private static final String DOCX_FILE_TEMPLATE = "template.docx";
     private static final String DOCX_TABLE_TEMPLATE = "table.xml";
     private static final String DOCX_DOCUMENT_PATH = "word/document.xml";
+    private static final String EMPTY_STRING = "";
+    private static final String PATH_TO_DROID_SANS =
+            "/system/fonts/DroidSansFallback.ttf";
+    private static final String APPLICATION_PDF = "application/pdf";
+    private static final String APPLICATION_DOCX =
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    private static final String CODING_UTF8 = "utf-8";
 
     private static final byte ENGLISH = 0;
     private static final byte RUSSIAN = 1;
@@ -134,14 +143,16 @@ public class ReportGenerator {
             300, // Content 10.
             300  // Content 11.
     };
+    private static final Integer COPY_BUFFER_SIZE = 1024;
 
     private static final Float PAGE_HEIGHT = 595.0f;
     private static final Float TOP_MARGIN = 40.0f;
     private static final Float BOTTOM_MARGIN = 2.0f;
     private static final Float LEFT_MARGIN = 2.0f;
     private static final Float RIGHT_MARGIN = 2.0f;
-    private static final String PATH_TO_DROID_SANS = "/system/fonts/DroidSansFallback.ttf";
     private static final Float CELL_FIRST_LINE_INDENT = 20.0f;
+    private static final Float ADDITION_INDENT = 10.0f;
+    private static final Float SPACE_AFTER = 10.0f;
 
     private static BaseFont droidSans;
 
@@ -152,10 +163,12 @@ public class ReportGenerator {
     private static Font textFontSmall;
 
     /**
-     * @param context
+     * The constructor of the class.
+     *
+     * @param context The Activity context.
      * @param tableName The table name. Place in the header.
-     * @param cellContent
-     * @param cellHeaders
+     * @param cellContent The array of the cells' content.
+     * @param cellHeaders The array of the cells' headers.
      */
     public ReportGenerator(
             Context context,
@@ -168,7 +181,7 @@ public class ReportGenerator {
         this.cellContent = cellContent;
         this.cellHeaders = cellHeaders;
 
-        pdfTask = new PdfTask();
+        genTask = new GenTask();
     }
 
     /**
@@ -201,20 +214,17 @@ public class ReportGenerator {
                 }
             }
         }
-
         for (Byte i = 0; i < 3; i++) {
             if (freqLangList[i] > freqLang) {
                 freqLang = freqLangList[i];
                 mostCommonLang = i;
             }
         }
-
         return mostCommonLang;
     }
 
-
     /**
-     *
+     * The method divides long content into chunks.
      */
     private void
     divIntoPages()
@@ -233,16 +243,22 @@ public class ReportGenerator {
 
 
         // Combine all strings to detect language.
-        lang = detectLang(StringUtils.join(cellContent, ""));
+        lang = detectLang(StringUtils.join(cellContent, EMPTY_STRING));
 
 
         for (int i = 0; i < cols; i++) {
             switch (lang) {
                 case ENGLISH:
-                    buffer = WordUtils.wrap(cellContent[i], ENGLISH_CHUNK_SIZES[i]);
+                    buffer = WordUtils.wrap(
+                            cellContent[i],
+                            ENGLISH_CHUNK_SIZES[i]
+                    );
                     break;
                 case RUSSIAN:
-                    buffer = WordUtils.wrap(cellContent[i], RUSSIAN_CHUNK_SIZES[i]);
+                    buffer = WordUtils.wrap(
+                            cellContent[i],
+                            RUSSIAN_CHUNK_SIZES[i]
+                    );
                     break;
                 case CHINESE:
                     buffer = "";
@@ -264,9 +280,11 @@ public class ReportGenerator {
 //                    );
                     break;
                 default:
-                    buffer = WordUtils.wrap(cellContent[i], ENGLISH_CHUNK_SIZES[i]);
+                    buffer = WordUtils.wrap(
+                            cellContent[i],
+                            ENGLISH_CHUNK_SIZES[i]
+                    );
             }
-
             dividedCell = new ArrayList<>(
                     Arrays.asList(
                             buffer.split(LINE_SEPARATOR)
@@ -278,7 +296,6 @@ public class ReportGenerator {
                 rows = dividedCell.size();
             }
         }
-
         pages = new String[rows][cols];
 
         for (int i = 0; i < rows; i++) {
@@ -286,7 +303,7 @@ public class ReportGenerator {
                 try {
                     pages[i][j] = cellChunks.get(j).get(i);
                 } catch (IndexOutOfBoundsException iobe) {
-                    pages[i][j] = "";
+                    pages[i][j] = EMPTY_STRING;
                 }
 
             }
@@ -294,7 +311,7 @@ public class ReportGenerator {
     }
 
     /**
-     *
+     * The method creates the font styles.
      */
     private void
     createFonts()
@@ -306,7 +323,7 @@ public class ReportGenerator {
                     BaseFont.EMBEDDED
             );
         } catch (Exception ex) {
-            ex.printStackTrace(); // TODO
+            ex.printStackTrace();
         }
 
         tableNameFont = new Font(droidSans, 18, Font.NORMAL, BaseColor.BLUE);
@@ -317,32 +334,34 @@ public class ReportGenerator {
     }
 
     /**
-     * @param document
-     * @param title
+     * The method creates the title of the table.
+     *
+     * @param document The object of the pdf document class.
+     * @param title The title of the page.
      * @throws DocumentException
-     * @throws IOException
      */
     private void
     createTitle(Document document, String title)
-            throws DocumentException, IOException
+            throws DocumentException
     {
         Paragraph titleParagraph = new Paragraph();
-        float spacingAfter = 10.0f;
 
         titleParagraph.setFont(tableNameFont);
         titleParagraph.add(title);
         titleParagraph.setAlignment(Element.ALIGN_CENTER);
         // Instead of the top page margin.
-        titleParagraph.setLeading(TOP_MARGIN - spacingAfter);
-        titleParagraph.setSpacingAfter(spacingAfter);
+        titleParagraph.setLeading(TOP_MARGIN - SPACE_AFTER);
+        titleParagraph.setSpacingAfter(SPACE_AFTER);
 
         document.add(titleParagraph);
     }
 
     /**
-     * @param header
-     * @param content
-     * @return
+     * The method creates a cell of the table (object).
+     *
+     * @param header The header of the cell.
+     * @param content The content of the cell.
+     * @return The instance of the cell class.
      */
     private PdfPCell
     createCell(String header, String content)
@@ -353,7 +372,7 @@ public class ReportGenerator {
         cell = new PdfPCell();
         cellContent = new Paragraph(content, textFont);
 
-        cellContent.setFirstLineIndent(20.0f);
+        cellContent.setFirstLineIndent(CELL_FIRST_LINE_INDENT);
 
         cell.addElement(new Paragraph(header, headerFont));
         cell.addElement(cellContent);
@@ -362,12 +381,14 @@ public class ReportGenerator {
     }
 
     /**
-     * @param header
-     * @param subHeader_1
-     * @param subHeader_2
-     * @param content_1
-     * @param content_2
-     * @return
+     * The method creates the nested table (Header 8).
+     *
+     * @param header Header 8.
+     * @param subHeader_1 Header 8.1.
+     * @param subHeader_2 Header 8.2.
+     * @param content_1 Content 8.1.
+     * @param content_2 Content 8.2.
+     * @return The instance of the cell class.
      */
     private PdfPCell
     createNestedTable(
@@ -384,14 +405,16 @@ public class ReportGenerator {
 
         // Row 1 in the nested table.
         Paragraph cellHeader = new Paragraph(header, headerFont);
-        Paragraph cellSubheader = new Paragraph(subHeader_1, subHeaderFont);
-        cellSubheader.setFirstLineIndent(CELL_FIRST_LINE_INDENT);
+        Paragraph cellSubHeader = new Paragraph(subHeader_1, subHeaderFont);
+        cellSubHeader.setFirstLineIndent(CELL_FIRST_LINE_INDENT);
         Paragraph cellContent = new Paragraph(content_1, textFontSmall);
-        cellContent.setFirstLineIndent(30.0f);
+        cellContent.setFirstLineIndent(
+                CELL_FIRST_LINE_INDENT + ADDITION_INDENT
+        );
 
         PdfPCell nestedTableCell = new PdfPCell();
         nestedTableCell.addElement(cellHeader);
-        nestedTableCell.addElement(cellSubheader);
+        nestedTableCell.addElement(cellSubHeader);
         nestedTableCell.addElement(cellContent);
 
         nestedTableCell.setBorder(PdfPCell.NO_BORDER);
@@ -401,14 +424,14 @@ public class ReportGenerator {
         nestedTable.addCell(nestedTableCell);
 
         // Row 2 in the nested table.
-        cellSubheader = new Paragraph(subHeader_2, subHeaderFont);
-        cellSubheader.setFirstLineIndent(CELL_FIRST_LINE_INDENT);
+        cellSubHeader = new Paragraph(subHeader_2, subHeaderFont);
+        cellSubHeader.setFirstLineIndent(CELL_FIRST_LINE_INDENT);
         cellContent = new Paragraph(content_2, textFontSmall);
         cellContent.setFirstLineIndent(30.0f);
 
         nestedTableCell = new PdfPCell();
         nestedTableCell.addElement(cellHeader);
-        nestedTableCell.addElement(cellSubheader);
+        nestedTableCell.addElement(cellSubHeader);
         nestedTableCell.addElement(cellContent);
         nestedTableCell.setBorder(PdfPCell.NO_BORDER);
         nestedTable.addCell(nestedTableCell);
@@ -421,8 +444,10 @@ public class ReportGenerator {
     }
 
     /**
-     * @param document
-     * @param cellContentChunks
+     * The method creates a table.
+     *
+     * @param document The instance of the Document class.
+     * @param cellContentChunks The chunks of content for the all cells.
      * @throws DocumentException
      */
     private void
@@ -535,7 +560,9 @@ public class ReportGenerator {
 
 
     /**
-     * @return
+     * The method gets the table template from assets.
+     *
+     * @return The xml code of the table.
      */
     private
     String getDocxTable ()
@@ -544,10 +571,10 @@ public class ReportGenerator {
         AssetManager assetManager = context.getAssets();
         try {
             in = assetManager.open(DOCX_TABLE_TEMPLATE);
-            return IOUtils.toString(in, "utf-8");
+            return IOUtils.toString(in, CODING_UTF8);
         } catch (IOException e) {
             Log.e(
-                    "tag", // TODO: 25.10.15
+                    "Assets",
                     String.format(
                             "Failed to copy asset file: %s",
                             DOCX_TABLE_TEMPLATE
@@ -558,17 +585,19 @@ public class ReportGenerator {
             if (in != null) {
                 try {
                     in.close();
-                } catch (IOException e) {
-                    // TODO: 25.10.15
+                } catch (IOException ioe) {
+                    Log.e("IO", "General input/output error", ioe);
                 }
             }
         }
-        return null; // FIXME: 26.10.15
+        return null;
     }
 
 
     /**
-     * @param destFilePath
+     * The method gets the template of the DOCX file from assets.
+     *
+     * @param destFilePath The full file path in assets.
      */
     private void
     copyDocxTemplateFromAssets(File destFilePath)
@@ -583,7 +612,7 @@ public class ReportGenerator {
             copyFile(in, out);
         } catch(IOException e) {
             Log.e(
-                    "tag", // TODO: 25.10.15
+                    "Assets",
                     String.format(
                             "Failed to copy asset file: %s",
                             destFilePath
@@ -594,37 +623,42 @@ public class ReportGenerator {
             if (in != null) {
                 try {
                     in.close();
-                } catch (IOException e) {
-                    // TODO: 25.10.15
+                } catch (IOException ioe) {
+                    Log.e("IO", "Cannot close input stream", ioe);
                 }
             }
             if (out != null) {
                 try {
                     out.close();
-                } catch (IOException e) {
-                    // TODO: 25.10.15
+                } catch (IOException ioe) {
+                    Log.e("IO", "Cannot close output stream", ioe);
                 }
             }
         }
     }
 
     /**
-     * @param in
-     * @param out
+     * The method copies the input stream of the file to the output stream.
+     *
+     * @param in The input file stream.
+     * @param out The output file stream.
      * @throws IOException
      */
     private void
     copyFile(InputStream in, OutputStream out)
             throws IOException
     {
-        byte[] buffer = new byte[1024];
         int read;
+        byte[] buffer = new byte[COPY_BUFFER_SIZE];
+
         while((read = in.read(buffer)) != -1) {
             out.write(buffer, 0, read);
         }
     }
 
     /**
+     * The method fills all fields in the PDF file.
+     *
      * @throws IOException
      * @throws DocumentException
      */
@@ -660,7 +694,24 @@ public class ReportGenerator {
     }
 
     /**
+     * The method fills all fields in the PDF file.
      *
+     * Необольшое пояснение как работать с этой минибиблиотекой. В assets лежат
+     * два файла: template.docx и table.xml. Первый -- это общий шаблон файла,
+     * второй -- шаблон таблицы. Чтобы что-то поменять в шаблоне необходимо
+     * распаковать template.docx любым архиватором, затем зайти в директорию
+     * word и открыть документ document.xml, в нём найти джокер %s и заменить
+     * его на содержимое файла table.xml. После этого запаковать все обратно и,
+     * вуаля, можно менять шаблон, например форматирование или расположение
+     * элементов. Также можно работать с подстановочными полями. Они обозначаются
+     * следующим образом "$номер_поля%s", где номер поля соотвествует индексу
+     * массива в выражении String.format(tableXML, (Object[])pageContent);
+     * Нумерация полей идет с единицы, количество полей должно сопадать с
+     * размерностью передаваемого массива, размер массива не ограничен.
+     * Изменив шаблон, нужно проделать все операции в обратном порядке, т.е.
+     * опять распаковать его, достать нужный файл, найти в нем тег tbl,
+     * переместить его содержимое в файл table.xml, а вместо него вбить %s.
+     * В завершении всего опять запаковать все в template.docx.
      */
     private void
     fillDocxFile()
@@ -669,19 +720,18 @@ public class ReportGenerator {
         String tableXML;
         InputStream is;
 
-        String tables = "";
+        String tables = EMPTY_STRING;
         String[] pageContent;
         ZipInputStream zis = null;
-
-//        File path = new File(String.format("%s%s", file, ".docx")); // FIXME: 25.10.15
         
         copyDocxTemplateFromAssets(file);
 
         try {
             ZipFile zipFile = new ZipFile(file);
-            zis = zipFile.getInputStream(zipFile.getFileHeader(DOCX_DOCUMENT_PATH));
-
-            documentXML = IOUtils.toString(zis, "utf-8");
+            zis = zipFile.getInputStream(
+                    zipFile.getFileHeader(DOCX_DOCUMENT_PATH)
+            );
+            documentXML = IOUtils.toString(zis, CODING_UTF8);
             tableXML = getDocxTable();
 
             divIntoPages();
@@ -692,10 +742,9 @@ public class ReportGenerator {
                 if (tableXML != null) {
                     tables += String.format(tableXML, (Object[])pageContent);
                 } else {
-                    // TODO: 27.10.15
+                    throw new Exception();
                 }
             }
-
             documentXML = String.format(documentXML, tables);
 
             zipFile.removeFile(DOCX_DOCUMENT_PATH);
@@ -707,22 +756,27 @@ public class ReportGenerator {
 
             is = IOUtils.toInputStream(documentXML);
             zipFile.addStream(is, parameters);
-        } catch (ZipException e) {
-            e.printStackTrace(); // TODO: 25.10.15  
-        } catch (IOException e) {
-            e.printStackTrace(); // TODO: 25.10.15
+        } catch (ZipException ze) {
+            Log.e("Zip", "An error occurred while working with zip file", ze);
+        } catch (IOException ioe) {
+            Log.e("IO", "General input/output error", ioe);
+        } catch (Exception e) {
+            Log.e("Unknown", "Unknown error", e);
         } finally {
             try {
-                zis.close();
-                //is.close();
+                if (zis != null) {
+                    zis.close();
+                } else {
+                    Log.e("Zip", "Zip stream was not open");
+                }
             } catch (IOException e) {
-                e.printStackTrace(); // TODO: 25.10.15
+                Log.e("Unknown", "Unknown error", e);
             }
         }
     }
 
     /**
-     * Main method
+     * Main method.
      */
     public void
     execute()
@@ -734,36 +788,21 @@ public class ReportGenerator {
                 public void
                 onChosenDir(String chosenDir)
                 {
-                    /* The code in this function will be executed when the dialog
-                       OK button is pushed */
+                    /* The code in this function will be
+                    executed when the dialog
+                    OK button is pushed */
                     try {
                         file = new File(chosenDir);
-                        pdfTask.execute();
+                        genTask.execute();
                     } catch (Exception e) {
-                        // TODO
+                        Log.e("Unknown", "Unknown error", e);
                     }
                 }
             });
         fileSaveDialog.chooseFileOrDir();
     }
-
-//    private File createPdfFile() {
-//
-//        if (!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
-//            return null;
-//        } else {
-//            String dir = Environment.getExternalStorageDirectory() + File.separator + "pdfdemo";
-//
-//            File folder = new File(dir);
-//            if (!folder.exists()) {
-//                folder.mkdirs();
-//            }
-//            return new File(dir, "test.pdf");
-//        }
-//    }
-
     /**
-     *
+     * The method creates 'Open in' dialog.
      */
     private void
     viewPdfFile()
@@ -778,19 +817,25 @@ public class ReportGenerator {
         );
         builder.setIcon(android.R.drawable.ic_dialog_info);
 
-        builder.setPositiveButton(R.string.button_yes, new DialogInterface.OnClickListener() {
+        builder.setPositiveButton(
+                R.string.button_yes,
+                new DialogInterface.OnClickListener()
+        {
             public void
             onClick(DialogInterface dialog, int id)
             {
                 Intent intent = new Intent(Intent.ACTION_VIEW);
                 switch (fileSaveDialog.fileType){
-                    case FileSaveDialog.PDF_FILETYPE:
-                        intent.setDataAndType(Uri.fromFile(file), "application/pdf");
-                        break;
-                    case FileSaveDialog.DOCX_FILETYPE:
+                    case FileSaveDialog.PDF_FILE_TYPE:
                         intent.setDataAndType(
                                 Uri.fromFile(file),
-                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                APPLICATION_PDF
+                        );
+                        break;
+                    case FileSaveDialog.DOCX_FILE_TYPE:
+                        intent.setDataAndType(
+                                Uri.fromFile(file),
+                                APPLICATION_DOCX
                         );
                         break;
                 }
@@ -798,7 +843,10 @@ public class ReportGenerator {
                 context.startActivity(intent);
             }
         });
-        builder.setNegativeButton(R.string.button_no, new DialogInterface.OnClickListener() {
+        builder.setNegativeButton(
+                R.string.button_no,
+                new DialogInterface.OnClickListener()
+        {
             public void
             onClick(DialogInterface dialog, int id)
             {
@@ -808,17 +856,14 @@ public class ReportGenerator {
     }
 
     /**
-     *
+     * Threading class
      */
-    private class
-            PdfTask
+    private class GenTask
             extends AsyncTask<Void, Void, Void>
     {
-        ProgressDialog dialog;
+        private ProgressDialog dialog;
+        private Exception exceptionToBeThrown;
 
-        /**
-         *
-         */
         @Override
         protected void
         onPreExecute()
@@ -826,50 +871,67 @@ public class ReportGenerator {
             super.onPreExecute();
             dialog = ProgressDialog.show(
                     context,
-                    "",
-                    context.getResources().getString(R.string.msg_file_generating),
+                    EMPTY_STRING,
+                    context.getResources().getString(
+                            R.string.msg_file_generating
+                    ),
                     true
             );
             dialog.show();
         }
 
-        /**
-         * @param
-         * @return
-         */
         @Override
         protected Void
         doInBackground(Void... params)
         {
             try {
                 switch (fileSaveDialog.fileType){
-                    case FileSaveDialog.PDF_FILETYPE:
+                    case FileSaveDialog.PDF_FILE_TYPE:
                         fillPdfFile();
                         break;
-                    case FileSaveDialog.DOCX_FILETYPE:
+                    case FileSaveDialog.DOCX_FILE_TYPE:
                         fillDocxFile();
                         break;
                 }
             } catch (DocumentException de) {
-                // TODO
+                Log.e(
+                        "Document",
+                        "An error occurred while generating PDF document",
+                        de
+                );
+                exceptionToBeThrown = de;
             } catch (FileNotFoundException fnfe) {
-                Log.w("ExternalStorage", String.format("Error writing %s", file), fnfe);
+                exceptionToBeThrown = fnfe;
+                Log.e(
+                        "Storage",
+                        String.format(
+                                "Error writing %s", file
+                        ), fnfe
+                );
             } catch (IOException e) {
-                e.printStackTrace(); // TODO
+                exceptionToBeThrown = e;
+                e.printStackTrace();
             }
             return null;
         }
 
-        /**
-         * @param result
-         */
         @Override
         protected void
         onPostExecute(Void result)
         {
             super.onPostExecute(result);
             dialog.dismiss();
-            viewPdfFile();
+            if (exceptionToBeThrown == null) {
+                viewPdfFile();
+            } else {
+                Toast.makeText(
+                        context,
+                        context.getResources().getString(
+                                R.string.err_generating_failure
+                        ),
+                        Toast.LENGTH_SHORT
+                ).show();
+            }
         }
     }
 }

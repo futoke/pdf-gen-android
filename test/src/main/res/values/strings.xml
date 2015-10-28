@@ -16,6 +16,7 @@
     <string name="err_failed_to_create_dir">Failed to create %s directory</string>
     <string name="err_file_name_is_empty">Please enter a file name</string>
     <string name="err_dir_name_is_empty">Please enter a dir name</string>
+    <string name="err_generating_failure">An error occurred while generating report</string>
     <string name="msg_file_written">The file %s is written.\n Do you want to view it?.</string>
     <string name="msg_file_exists">The file %s exists.\n Do you want to overwrite it?</string>
     <string name="msg_file_generating">Generating. Please wait…</string>

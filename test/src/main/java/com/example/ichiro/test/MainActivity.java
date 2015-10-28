@@ -76,7 +76,11 @@ public class
                 cellContent,
                 cellHeaders
         );
-        reportGenerator.execute();
+        try {
+            reportGenerator.execute();
+        } catch (Exception ignored) {
+//            Toast (context, );
+        }
     }
 
     @Override
