@@ -444,7 +444,7 @@ public class ReportGenerator {
     }
 
     /**
-     * The method creates a table.
+     * The method creates a main table.
      *
      * @param document The instance of the Document class.
      * @param cellContentChunks The chunks of content for the all cells.
